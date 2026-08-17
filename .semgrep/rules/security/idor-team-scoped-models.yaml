@@ -342,6 +342,7 @@ rules:
                               |TaskWorkflowDispatch
                               |TaskSearchDocument
                               |TaskSession
+                              |UserTasksConfig
                               |TaskThreadMessage
                               |TaskThreadMessageMention
                               |Channel
@@ -713,6 +714,7 @@ rules:
                         |TaskRun
                         |TaskWorkflowDispatch
                         |TaskSession
+                        |UserTasksConfig
                         |TaskThreadMessage
                         |TaskThreadMessageMention
                         |Channel
