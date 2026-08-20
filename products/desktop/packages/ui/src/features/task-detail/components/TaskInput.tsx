@@ -687,6 +687,9 @@ export function TaskInput({
     fastModeOption,
     isLoading: isPreviewLoading,
     setConfigOption,
+    resetToDefault,
+    isDefaultSelection,
+    resetToDefaultDisabled,
   } = usePreviewConfig(adapter);
 
   const lastAppliedDeepLinkConfigKey = useRef<string | undefined>(undefined);
@@ -1573,6 +1576,9 @@ export function TaskInput({
                         onMenuOpenChange={setModelMenuOpen}
                         disabled={isCreatingTask}
                         isLoading={isPreviewLoading}
+                        isDefaultSelection={isDefaultSelection}
+                        onResetToDefault={resetToDefault}
+                        resetToDefaultDisabled={resetToDefaultDisabled}
                       />
                     )
                   }
