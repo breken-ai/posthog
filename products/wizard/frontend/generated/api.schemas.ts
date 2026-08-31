@@ -589,35 +589,47 @@ export type WizardRunsArtifactsListParams = {
 
 export type WizardSessionsListParams = {
     /**
-     * Number of results to return per page.
+     * Maximum number of sessions to return.
+     * @minimum 0
+     * @maximum 200
      */
     limit?: number
     /**
-     * The initial index from which to return the results.
+     * Number of sessions to skip.
+     * @minimum 0
      */
     offset?: number
     /**
-     * Filter to a single skill within the workflow (e.g. 'nextjs').
+     * Return sessions for this skill only.
      */
     skill_id?: string
     /**
-     * Filter to a single workflow (e.g. 'onboarding').
+     * Return sessions for this workflow only.
+     * @minLength 1
      */
     workflow_id?: string
 }
 
 export type WizardSessionsLatestRetrieveParams = {
     /**
-     * Filter to a single skill within the workflow (e.g. 'nextjs').
+     * Optional skill within the workflow.
      */
     skill_id?: string
     /**
-     * Filter to a single workflow (e.g. 'posthog-integration').
+     * Workflow to inspect.
+     * @minLength 1
      */
     workflow_id: string
 }
 
 export type WizardSessionsStreamRetrieveParams = {
+    /**
+     * Optional skill within the workflow.
+     */
     skill_id?: string
+    /**
+     * Workflow to inspect.
+     * @minLength 1
+     */
     workflow_id: string
 }
