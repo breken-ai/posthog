@@ -209,15 +209,17 @@ class DataWarehouseSavedQuery(CreatedMetaFields, UUIDTModel, UpdatedMetaFields, 
 
     def schedule_materialization(self, reconcile: bool = True, trigger_immediate_run: bool = False):
         """
-        It will schedule the saved query workflow to run at the configured frequency.
+        Put this saved query on the schedule that will materialize it, at the frequency in
+        sync_frequency_interval.
 
-        trigger_immediate_run is for callers enabling materialization: on v2 it starts the first
-        materialization right away instead of waiting for the next scheduled DAG tick, matching
-        v1 schedule creation (which triggers immediately). Callers merely updating frequency
-        must leave it False. Best-effort: a failed start never disables materialization, since
-        the DAG schedule still covers the query.
+        trigger_immediate_run is for callers enabling materialization: it starts the first
+        materialization right away instead of waiting for the node's cadence tier to fire.
+        Callers merely updating frequency must leave it False. The start is best effort, so a
+        failure to start never disables materialization, because the tier still covers the query.
 
-        If the workflow fails to schedule, it will disable materialization for this view.
+        A rejected frequency propagates to the caller. Any other failure disables
+        materialization, because the alternative is a query that reports itself materialized
+        while nothing is scheduled to materialize it.
         """
         from products.data_modeling.backend.logic.freshness import (
             UnsatisfiableFrequencyError,
@@ -227,7 +229,6 @@ class DataWarehouseSavedQuery(CreatedMetaFields, UUIDTModel, UpdatedMetaFields, 
         from products.data_modeling.backend.logic.schedule_reconcile import (
             apply_saved_query_frequency_target,
             bootstrap_dag_to_tiers,
-            dag_can_bootstrap_to_tiers,
             tiered_schedules_enabled,
         )
         from products.data_modeling.backend.models.node import Node
@@ -247,10 +248,9 @@ class DataWarehouseSavedQuery(CreatedMetaFields, UUIDTModel, UpdatedMetaFields, 
             )
             dag_to_bootstrap = None
             if not on_v2:
-                # Nothing creates a DAG's first v2 schedule outside the migration commands, so a
-                # brand-new team would fall through to v1 forever. Bootstrap it instead — declined
-                # unless the DAG has never been scheduled at all.
-                if node is not None and node.dag is not None and dag_can_bootstrap_to_tiers(node.dag):
+                # Nothing creates a DAG's first schedule outside the migration commands, so a
+                # brand-new team has nothing to materialize it. Bootstrap it onto tiers instead.
+                if node is not None and node.dag is not None and tiered_schedules_enabled(node.dag.team):
                     dag_to_bootstrap = node.dag
                     on_v2 = True
 
