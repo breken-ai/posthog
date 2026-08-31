@@ -599,6 +599,7 @@ SPECTACULAR_SETTINGS = {
         "ExperimentMetricKindEnum": "products.ai_observability.backend.models.score_definitions.ScoreDefinition.Kind",
         "EvaluationTargetEnum": "products.ai_observability.backend.models.evaluations.EvaluationTarget",
         "IntegrationKindEnum": "posthog.models.integration.Integration.IntegrationKind",
+        "WorkflowProposalSourceTypeEnum": "products.workflows.backend.models.workflow_proposal.WorkflowProposal.SourceType",
         # Shared by TaskCreate.origin_product and TaskWrite.origin_product. Needs naming because
         # WarmTaskRequest.origin_product offers only the warmable subset, so "origin_product" alone
         # no longer identifies one choice set. Keyed to the name the generator already produced
