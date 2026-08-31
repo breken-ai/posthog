@@ -23,6 +23,7 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+use ingestion_consumer::config::LedgerMode;
 use std::sync::atomic::AtomicU64;
 
 use ingestion_consumer::consumer::{IngestionConsumer, IngestionConsumerOptions};
@@ -626,6 +627,7 @@ impl Harness {
                 deferred_flush_timeout,
                 debug_recorder: None,
                 eager_deferred_flush: false,
+                ledger_mode: LedgerMode::Shadow,
             },
             handle,
         );
@@ -702,6 +704,7 @@ impl Harness {
                 deferred_flush_timeout: self.deferred_flush_timeout,
                 debug_recorder: None,
                 eager_deferred_flush: false,
+                ledger_mode: LedgerMode::Shadow,
             },
             handle,
         );
@@ -2488,6 +2491,7 @@ async fn second_consumer_joining_the_group_preserves_all_messages() {
             deferred_flush_timeout: Duration::from_secs(60),
             debug_recorder: None,
             eager_deferred_flush: false,
+            ledger_mode: LedgerMode::Shadow,
         },
         handle2,
     );
@@ -2589,6 +2593,7 @@ async fn partition_lost_and_regained_keeps_the_consumer_alive() {
             deferred_flush_timeout: Duration::from_secs(60),
             debug_recorder: None,
             eager_deferred_flush: false,
+            ledger_mode: LedgerMode::Shadow,
         },
         handle2,
     );
@@ -2682,6 +2687,7 @@ async fn fenced_static_member_exits_on_fatal_error() {
             deferred_flush_timeout: Duration::from_secs(60),
             debug_recorder: None,
             eager_deferred_flush: false,
+            ledger_mode: LedgerMode::Shadow,
         },
         handle,
     );

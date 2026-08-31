@@ -14,6 +14,7 @@ use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
 use crate::config::Config;
+use crate::config::LedgerMode;
 use crate::debug_recorder::{record_if, DebugEventKind, DebugRecorder, PartitionOffset};
 use crate::discovery::DiscoveryMode;
 use crate::dispatcher::{Dispatcher, EagerFlush, KeyOffset, SubBatch};
@@ -104,6 +105,8 @@ pub struct IngestionConsumerOptions {
     /// Release a deferring key's next stashed group as soon as the send
     /// blocking it resolves (see `DISPATCHER_EAGER_DEFERRED_FLUSH`).
     pub eager_deferred_flush: bool,
+    /// Whether the offset ledger observes or owns the commit path.
+    pub ledger_mode: LedgerMode,
 }
 
 /// The main consumer loop: reads from Kafka, routes messages by Kafka key
@@ -145,7 +148,10 @@ impl IngestionConsumer {
         // Share the context's commit sentinel so rebalance callbacks reset the
         // same baselines the commit path checks against.
         let commit_sentinel = consumer.context().commit_sentinel();
-        let ledger_observer = Arc::new(LedgerObserver::new(transport.assignment_epoch()));
+        let ledger_observer = Arc::new(LedgerObserver::new(
+            options.ledger_mode,
+            transport.assignment_epoch(),
+        ));
         consumer
             .context()
             .set_ledger_observer(Arc::clone(&ledger_observer));
@@ -195,7 +201,10 @@ impl IngestionConsumer {
             config.consumer_batch_size_kb,
         );
         let commit_sentinel = Arc::new(CommitSentinel::new());
-        let ledger_observer = Arc::new(LedgerObserver::new(transport.assignment_epoch()));
+        let ledger_observer = Arc::new(LedgerObserver::new(
+            config.consumer_offset_ledger_mode,
+            transport.assignment_epoch(),
+        ));
         commit_sentinel.set_enabled(config.consumer_order_sentinel_enabled);
         let key_sentinel = dispatcher.key_order_sentinel();
         key_sentinel.set_enabled(config.consumer_order_sentinel_enabled);
@@ -986,7 +995,8 @@ impl IngestionConsumer {
         })
     }
 
-    /// Commit the max offset for each topic-partition.
+    /// Commit either the existing per-batch max offset or the verified ledger
+    /// frontier for each topic-partition.
     fn commit_offsets(
         &self,
         offset_spans: &HashMap<(String, i32), OffsetSpan>,
@@ -1000,19 +1010,54 @@ impl IngestionConsumer {
             return Ok(());
         }
 
+        let (commit_spans, committing_frontiers) = if self.ledger_observer.owns_commits() {
+            let (frontiers, _) = self
+                .ledger_observer
+                .complete_and_compare_frontiers(ledger_offsets, offset_spans);
+            let selected = offset_spans
+                .iter()
+                .filter_map(|(topic_partition, span)| {
+                    frontiers.get(topic_partition).map(|frontier| {
+                        (
+                            topic_partition.clone(),
+                            // The frontier is next-to-read; the span is
+                            // last-processed, so the commit below adds the 1
+                            // back and submits the frontier verbatim.
+                            OffsetSpan {
+                                first: span.first,
+                                last: frontier.0 - 1,
+                            },
+                        )
+                    })
+                })
+                .collect::<HashMap<_, _>>();
+            (selected, true)
+        } else {
+            (offset_spans.clone(), false)
+        };
+
+        if commit_spans.is_empty() {
+            warn!("No ledger frontier available for completed offsets; skipping commit");
+            return Ok(());
+        }
+
         // Validate contiguity/monotonicity per partition before committing, so
         // a violation is attributed to the batch that caused it.
-        self.commit_sentinel.check_commit(offset_spans);
+        self.commit_sentinel.check_commit(&commit_spans);
 
         let mut tpl = TopicPartitionList::new();
-        for ((topic, partition), span) in offset_spans {
+        for ((topic, partition), span) in &commit_spans {
             // Commit offset + 1 (Kafka convention: committed offset = next to read)
             tpl.add_partition_offset(topic, *partition, rdkafka::Offset::Offset(span.last + 1))?;
         }
 
         self.consumer.commit(&tpl, CommitMode::Async)?;
-        self.ledger_observer
-            .complete_and_compare(ledger_offsets, offset_spans);
+        if committing_frontiers {
+            self.ledger_observer.take_frontiers(ledger_offsets);
+        } else {
+            self.ledger_observer
+                .complete_and_compare(ledger_offsets, offset_spans);
+        }
         counter!("ingestion_consumer_offset_commits_total").increment(1);
 
         Ok(())

@@ -7,6 +7,7 @@ use common_kafka_consumer::{Charge, Offset, OffsetLedger};
 use metrics::{counter, gauge};
 use tracing::warn;
 
+use crate::config::LedgerMode;
 use crate::order_sentinel::OffsetSpan;
 
 pub(crate) type TopicPartition = (String, i32);
@@ -35,19 +36,26 @@ struct EpochLedger {
     ledger: OffsetLedger,
 }
 
-/// Maintains the shadow ledger without participating in commit choice.
+/// Maintains the offset ledgers and, in commit mode, supplies the frontier
+/// the consumer commits.
 pub(crate) struct LedgerObserver {
+    mode: LedgerMode,
     /// Shared with the rebalance callback, which bumps it on every assign.
     assignment_epoch: Arc<AtomicU64>,
     partitions: Mutex<HashMap<TopicPartition, EpochLedger>>,
 }
 
 impl LedgerObserver {
-    pub(crate) fn new(assignment_epoch: Arc<AtomicU64>) -> Self {
+    pub(crate) fn new(mode: LedgerMode, assignment_epoch: Arc<AtomicU64>) -> Self {
         Self {
+            mode,
             assignment_epoch,
             partitions: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub(crate) fn owns_commits(&self) -> bool {
+        self.mode == LedgerMode::Commit
     }
 
     /// The current assignment epoch, for stamping work as it is buffered.
@@ -109,16 +117,17 @@ impl LedgerObserver {
         .set(entry.ledger.len() as f64);
     }
 
-    /// Mark one completed batch, compare its frontier with the current commit
-    /// span, and drain the observed prefix. The caller is still expected to
-    /// commit `offset_spans`. Completions stamped before a partition's
-    /// current assignment are stragglers and drop.
-    pub(crate) fn complete_and_compare(
+    /// Mark one completed batch and compare the resulting frontiers with the
+    /// current commit spans. The caller chooses whether `offset_spans` or the
+    /// frontiers own the Kafka commit. Completions stamped before a
+    /// partition's current assignment are stragglers and drop.
+    pub(crate) fn complete_and_compare_frontiers(
         &self,
         completed: &HashMap<TopicPartition, EpochOffsets>,
         offset_spans: &HashMap<TopicPartition, OffsetSpan>,
-    ) -> Vec<LedgerMismatch> {
+    ) -> (HashMap<TopicPartition, Offset>, Vec<LedgerMismatch>) {
         let mut partitions = self.partitions.lock().unwrap();
+        let mut frontiers = HashMap::new();
         let mut mismatches = Vec::new();
 
         for (topic_partition, batch) in completed {
@@ -156,6 +165,9 @@ impl LedgerObserver {
                 .last
                 + 1;
             let frontier = entry.ledger.frontier();
+            if let Some(frontier) = frontier {
+                frontiers.insert(topic_partition.clone(), frontier);
+            }
             if frontier != Some(Offset(committed)) {
                 let direction = match frontier {
                     Some(frontier) if frontier.0 > committed => "ahead",
@@ -187,6 +199,13 @@ impl LedgerObserver {
             }
         }
 
+        (frontiers, mismatches)
+    }
+
+    /// Consume the completed prefix after a successful commit request, with
+    /// the same straggler checks as the comparison.
+    pub(crate) fn take_frontiers(&self, completed: &HashMap<TopicPartition, EpochOffsets>) {
+        let mut partitions = self.partitions.lock().unwrap();
         for (topic_partition, batch) in completed {
             let Some(entry) = partitions.get_mut(topic_partition) else {
                 continue;
@@ -202,7 +221,17 @@ impl LedgerObserver {
             )
             .set(entry.ledger.len() as f64);
         }
+    }
 
+    /// Shadow-mode completion: compare the current commit source, then drain
+    /// at the same point as the actual commit request.
+    pub(crate) fn complete_and_compare(
+        &self,
+        completed: &HashMap<TopicPartition, EpochOffsets>,
+        offset_spans: &HashMap<TopicPartition, OffsetSpan>,
+    ) -> Vec<LedgerMismatch> {
+        let (_, mismatches) = self.complete_and_compare_frontiers(completed, offset_spans);
+        self.take_frontiers(completed);
         mismatches
     }
 
@@ -242,7 +271,7 @@ mod tests {
 
     fn new_observer() -> (Arc<AtomicU64>, LedgerObserver) {
         let epoch = Arc::new(AtomicU64::new(1));
-        let observer = LedgerObserver::new(Arc::clone(&epoch));
+        let observer = LedgerObserver::new(LedgerMode::Shadow, Arc::clone(&epoch));
         (epoch, observer)
     }
 
@@ -345,6 +374,62 @@ mod tests {
             2,
             "the held partition keeps its offsets"
         );
+    }
+
+    #[test]
+    fn frontiers_map_carries_only_partitions_with_a_frontier() {
+        let observer = LedgerObserver::new(LedgerMode::Commit, Arc::new(AtomicU64::new(1)));
+        assert!(observer.owns_commits());
+        assert!(
+            !LedgerObserver::new(LedgerMode::Shadow, Arc::new(AtomicU64::new(1))).owns_commits()
+        );
+
+        observer.charge("events", 0, 1, [(Offset(10), Charge::ZERO)]);
+        observer.charge("events", 1, 1, [(Offset(10), Charge::ZERO)]);
+        observer.charge("events", 1, 1, [(Offset(11), Charge::ZERO)]);
+
+        let done = ("events".to_string(), 0);
+        let held = ("events".to_string(), 1);
+        let completed = HashMap::from([
+            (done.clone(), batch(1, vec![Offset(10)])),
+            (held.clone(), batch(1, vec![Offset(11)])),
+        ]);
+        let offset_spans = HashMap::from([(done.clone(), span(10)), (held.clone(), span(11))]);
+
+        let (frontiers, mismatches) =
+            observer.complete_and_compare_frontiers(&completed, &offset_spans);
+        assert_eq!(frontiers, HashMap::from([(done, Offset(11))]));
+        assert_eq!(
+            mismatches.len(),
+            1,
+            "the partition with no frontier compares as a mismatch"
+        );
+    }
+
+    #[test]
+    fn only_take_frontiers_drains_the_ledgers() {
+        let observer = LedgerObserver::new(LedgerMode::Commit, Arc::new(AtomicU64::new(1)));
+        observer.charge("events", 0, 1, [(Offset(10), Charge::ZERO)]);
+
+        let topic_partition = ("events".to_string(), 0);
+        let completed = HashMap::from([(topic_partition.clone(), batch(1, vec![Offset(10)]))]);
+        let offset_spans = HashMap::from([(topic_partition, span(10))]);
+        observer.complete_and_compare_frontiers(&completed, &offset_spans);
+        assert_eq!(observer.depth("events", 0), 1, "observing does not consume");
+
+        observer.take_frontiers(&completed);
+        assert_eq!(observer.depth("events", 0), 0);
+    }
+
+    #[test]
+    fn take_frontiers_skips_a_forgotten_partition() {
+        let observer = LedgerObserver::new(LedgerMode::Commit, Arc::new(AtomicU64::new(1)));
+        observer.charge("events", 0, 1, [(Offset(10), Charge::ZERO)]);
+        observer.forget_partitions([("events", 0)]);
+
+        let topic_partition = ("events".to_string(), 0);
+        let completed = HashMap::from([(topic_partition.clone(), batch(1, vec![Offset(10)]))]);
+        observer.take_frontiers(&completed);
     }
 
     #[test]
