@@ -274,8 +274,19 @@ Details: `/depot-github-runners`.
 
 ## Draft vs ready-for-review
 
-Most commits land before a PR is marked ready, and drafts can't merge — so heavy suites should run a narrowed subset on drafts and the full matrix on `ready_for_review` (the merge gate).
-Add `ready_for_review` to the `pull_request` types, and make aggregator "... Tests Pass" jobs treat `skipped` as success so drafts still report.
+**`ready_for_review` is not the merge gate.** The merge queue's run on a `trunk-merge/` branch is.
+So a heavy suite runs its narrowed subset on drafts _and_ on ready PRs, and only the queue run takes the full matrix.
+`ci-backend.yml`, `ci-frontend.yml`, `ci-storybook.yml`, and `ci-e2e-playwright.yml` all work this way.
+Exclude the queue with `!startsWith(github.head_ref, 'trunk-merge/')`, or with `draft != true` since those PRs open as drafts — not with `draft == true`.
+
+Still add `ready_for_review` to the `pull_request` types — a `no-ci` draft skips the workflow outright, and that event is what gives it a run — and make aggregator "... Tests Pass" jobs treat `skipped` as success so drafts still report.
+
+What draft state _does_ decide is the fallback when a selection cannot be trusted (config change, oversized diff, selector crash):
+
+- **draft → skip the suite.** Its own ready run selects again, so nothing is lost.
+- **ready → full matrix.** No later run on that PR would cover it, and a narrowed run the selector can't vouch for is false confidence.
+
+`turbo-discover.js` (`draft ? 'skip' : 'full'`) and `ci-frontend.yml`'s `fall_back` are the two reference implementations.
 Foot-gun: if the job that selects tests is cancelled mid-flight, its `mode` output is empty — normalize empty-mode **on a draft** to `skip`, or the draft grabs the full matrix and serializes the ready run behind it.
 
 ## Backwards-compat with unrebased PRs
