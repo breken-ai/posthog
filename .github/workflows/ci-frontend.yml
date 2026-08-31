@@ -1,11 +1,14 @@
 name: Frontend CI
 on:
     pull_request:
-        # Draft PRs run a narrowed jest selection; ready PRs run the full matrix
-        # (the merge gate). ready_for_review re-triggers the full run on the
-        # current head when a PR leaves draft. To force the full matrix on a
-        # draft, add the `run-ci-frontend` label. The `no-ci` label does the
-        # opposite: it silences this workflow on a draft entirely (prototypes).
+        # PRs run a narrowed jest selection, draft or ready. The merge queue's
+        # trunk-merge/** run is the full matrix that gates master. A draft runs the
+        # EE shards only; a ready PR adds the FOSS shards, so the ee-free structural
+        # check still reaches a reviewer. When selection can't be trusted, a ready PR
+        # falls back to the full matrix and a draft skips jest instead, deferring to
+        # its ready run. To force the full matrix on a PR, add the `run-ci-frontend`
+        # label. The `no-ci` label does the opposite: it silences this workflow on a
+        # draft entirely (prototypes).
         # No labeled/unlabeled triggers: GitHub cannot filter a label trigger by
         # name, so every unrelated label re-ran the full jest matrix against a
         # commit CI had already covered. A label here takes effect from the next
@@ -192,14 +195,14 @@ jobs:
                   token: ${{ steps.app-token.outputs.token || github.token }}
                   filters: ${{ runner.temp }}/frontend-exclude.yml
 
-    # Pick which jest tests to run on draft PRs by passing changed files to
+    # Pick which jest tests to run on a PR by passing changed files to
     # `jest --findRelatedTests` (jest's resolver walks the import graph for us).
-    # Skipped on ready PRs and master pushes; the jest job falls back
-    # to its full FOSS×EE × chunk matrix in those cases. The ready-for-review
-    # full run is the merge gate. The run-ci-frontend label forces the full
-    # matrix on a draft. When selection can't be trusted on a draft (config
-    # change, oversized diff, selector failure), the draft skips jest entirely
-    # and defers to the ready full run.
+    # Skipped on master pushes and on the merge queue's run, where the jest job
+    # falls back to its full FOSS×EE × chunk matrix. That queue run is what gates
+    # master, so it is the only place the full matrix has to run.
+    # The run-ci-frontend label forces the full matrix on a PR. When selection
+    # can't be trusted (config change, oversized diff, selector failure), a ready
+    # PR takes the full matrix and a draft skips jest, deferring to its ready run.
     select-jest-tests:
         name: Select jest tests
         runs-on: ubuntu-latest
@@ -210,7 +213,6 @@ jobs:
         if: |
             !cancelled() && needs.changes.outputs.frontend_code == 'true'
             && github.event_name == 'pull_request'
-            && github.event.pull_request.draft == true
             && !startsWith(github.head_ref, 'trunk-merge/')
             && !contains(github.event.pull_request.labels.*.name, 'run-ci-frontend')
         outputs:
@@ -241,32 +243,44 @@ jobs:
               id: classify
               env:
                   DIFF_OUTCOME: ${{ steps.diff.outcome }}
+                  PR_DRAFT: ${{ github.event.pull_request.draft }}
               run: |
                   set -euo pipefail
 
-                  # Untrusted selection on a draft skips jest entirely (should_run=false
-                  # gates the jest job off); the ready-for-review full run is the gate.
                   # Use this whenever the selector can't reason about the diff — a
-                  # narrowed run it can't vouch for would be false confidence, and a
-                  # full run on every draft push is the spend this selection avoids.
-                  # The run-ci-frontend label forces the full matrix on a draft.
-                  fall_back_to_skip() {
-                      echo "mode=skip" >> "$GITHUB_OUTPUT"
-                      echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
-                      echo "should_run=false" >> "$GITHUB_OUTPUT"
-                      echo "changed_files=" >> "$GITHUB_OUTPUT"
+                  # narrowed run it can't vouch for would be false confidence.
+                  # A draft skips jest and defers to its ready run; a ready PR has no
+                  # later run on this PR to defer to, so it takes the full matrix.
+                  # Mirrors the draft/ready fallback turbo-discover.js applies to the
+                  # Django matrices. The run-ci-frontend label forces the full matrix.
+                  fall_back() {
+                      if [[ "$PR_DRAFT" == "true" ]]; then
+                          echo "::notice::$1; draft skips jest (its ready run selects again)"
+                          {
+                              echo "mode=skip"
+                              echo 'matrix={"include":[]}'
+                              echo "should_run=false"
+                              echo "changed_files="
+                          } >> "$GITHUB_OUTPUT"
+                      else
+                          echo "::notice::$1; running the full jest matrix"
+                          {
+                              echo "mode=full"
+                              echo 'matrix={"segment":["FOSS","EE"],"chunk":[1,2,3,4]}'
+                              echo "should_run=true"
+                              echo "changed_files="
+                          } >> "$GITHUB_OUTPUT"
+                      fi
                   }
 
                   if [[ "$DIFF_OUTCOME" != "success" ]] || [[ ! -s /tmp/changed.txt ]]; then
-                      echo "::warning::could not derive changed files; draft skips jest (full run happens on ready for review)"
-                      fall_back_to_skip
+                      fall_back "could not derive changed files"
                       exit 0
                   fi
 
                   changed_count=$(wc -l < /tmp/changed.txt)
                   if [[ "$changed_count" -gt 200 ]]; then
-                      echo "::notice::diff has $changed_count files (>200); draft skips jest (full run happens on ready for review)"
-                      fall_back_to_skip
+                      fall_back "diff has $changed_count files (>200)"
                       exit 0
                   fi
 
@@ -280,8 +294,7 @@ jobs:
                           jest.*.ts|babel.config.js|tsconfig.json|tsconfig.*.json|\
                           package.json|pnpm-lock.yaml|webpack.config.js|\
                           .github/workflows/ci-frontend.yml|.nvmrc)
-                              echo "::notice::config change ($f); draft skips jest (full run happens on ready for review)"
-                              fall_back_to_skip
+                              fall_back "config change ($f)"
                               exit 0
                               ;;
                       esac
@@ -318,14 +331,24 @@ jobs:
                       exit 0
                   fi
 
-                  # Selective mode uses two EE-tree shards because a widely imported
-                  # source file can make --findRelatedTests approach a full suite. The FOSS
-                  # structural check (ee/ removed) only matters when ee imports are
-                  # touched; defer that to the ready-for-review full run. --findRelatedTests
-                  # walks jest's import graph from these files and runs the matching
-                  # *.test.* files.
+                  # Two shards per segment, because a widely imported source file can make
+                  # --findRelatedTests approach a full suite. --findRelatedTests walks jest's
+                  # import graph from the changed files and runs the matching *.test.* files.
+                  #
+                  # A draft runs the EE tree only. A ready PR adds the FOSS shards, which run
+                  # the same related tests with ee/ deleted: that is the structural check for
+                  # core code importing ee/, and nothing but jest catches it. A draft can
+                  # defer it to its own ready run; past ready, the next run that would catch
+                  # it is the merge queue's, which is too late to be useful to a reviewer.
+                  EE_SHARDS='{"segment":"EE","chunk":1,"shard_count":2},{"segment":"EE","chunk":2,"shard_count":2}'
+                  FOSS_SHARDS='{"segment":"FOSS","chunk":1,"shard_count":2},{"segment":"FOSS","chunk":2,"shard_count":2}'
+                  if [[ "$PR_DRAFT" == "true" ]]; then
+                      MATRIX="{\"include\":[$EE_SHARDS]}"
+                  else
+                      MATRIX="{\"include\":[$EE_SHARDS,$FOSS_SHARDS]}"
+                  fi
                   echo "mode=selective" >> "$GITHUB_OUTPUT"
-                  echo 'matrix={"include":[{"segment":"EE","chunk":1,"shard_count":2},{"segment":"EE","chunk":2,"shard_count":2}]}' >> "$GITHUB_OUTPUT"
+                  echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
                   echo "should_run=true" >> "$GITHUB_OUTPUT"
                   echo "changed_files=$CHANGED_FILES" >> "$GITHUB_OUTPUT"
                   echo "Selective mode: $(echo "$CHANGED_FILES" | wc -w) frontend source files"
@@ -723,12 +746,14 @@ jobs:
 
     jest:
         runs-on: ubuntu-latest
-        # Draft PRs run two selective shards over tests reachable from changed files.
-        # The ready-for-review fanout uses four shards over the full suite.
+        # PRs run selective shards over the tests reachable from the changed files:
+        # two on a draft (EE), four on a ready PR (EE + FOSS). The merge queue and
+        # master pushes run the full eight-shard fanout.
         timeout-minutes: 20
         needs: [changes, select-jest-tests]
-        # A status function is required because select-jest-tests is skipped on ready
-        # PRs and master pushes, and a skipped need would otherwise cascade a skip here.
+        # A status function is required because select-jest-tests is skipped on the
+        # merge queue's run and on master pushes, and a skipped need would otherwise
+        # cascade a skip here.
         # !cancelled() rather than always() so a superseded run's shards stop promptly.
         if: |
             !cancelled() && needs.changes.outputs.frontend_code == 'true'
@@ -737,11 +762,11 @@ jobs:
         strategy:
             # If one test fails, still run the others
             fail-fast: false
-            # On draft PRs, select-jest-tests may narrow this to two EE jobs
-            # running only the tests reachable from changed frontend source files,
-            # or skip jest entirely (should_run=false) when selection can't be
-            # trusted. On ready PRs and master pushes it's skipped, so
-            # we fall back to the full FOSS×EE × chunk fanout (the merge gate).
+            # On PRs, select-jest-tests narrows this to the tests reachable from the
+            # changed frontend source files, skips jest entirely (should_run=false) on
+            # a draft whose selection can't be trusted, or emits the full fanout when a
+            # ready PR's can't be. On the merge queue's run and master pushes the job is
+            # skipped and this default applies — the full FOSS×EE × chunk fanout.
             matrix: ${{ fromJson(needs.select-jest-tests.outputs.matrix || '{"segment":["FOSS","EE"],"chunk":[1,2,3,4]}') }}
 
         steps:
