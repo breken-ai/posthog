@@ -12,11 +12,14 @@ double-post. The alert's stored filters gate openers (see filtering.py).
 import dataclasses
 
 from django.db import IntegrityError
+from django.db.models import F
+from django.utils import timezone
 
 import structlog
 from slack_sdk import WebClient
 
 from posthog.models.integration import Integration, SlackIntegration
+from posthog.redis import get_client
 
 from products.error_tracking.backend.models import (
     ErrorTrackingAlert,
@@ -56,6 +59,9 @@ ROOT_EDIT_EVENTS = {
 }
 
 DELIVERED_NOTIFICATION_IDS_CAP = 200
+
+ALERT_THROTTLE_KEY_PREFIX = "error_tracking:alert_throttle:v1"
+MAX_RECORDED_ERROR_LENGTH = 500
 
 
 class AlertDeliveryError(Exception):
@@ -129,6 +135,7 @@ def _opener_filter_matches(planned: list[PlannedDelivery], inputs: AlertDelivery
 def deliver_alert_notifications(inputs: AlertDeliveryWorkflowInputs) -> int:
     planned = plan_alert_deliveries(inputs)
     filter_matches = _opener_filter_matches(planned, inputs)
+    throttle_allowed: dict = {}
     delivered = 0
     failures = 0
     for delivery in planned:
@@ -136,10 +143,18 @@ def deliver_alert_notifications(inputs: AlertDeliveryWorkflowInputs) -> int:
             # A filtered-out opener leaves no thread behind, so later replies for
             # this issue stay unclaimed and a matching opener can still root one.
             continue
+        if delivery.is_opener:
+            # The throttle window is claimed only for openers whose filters
+            # matched, and once per alert: every destination of the alert shares
+            # the same claim, and replies are never throttled.
+            if delivery.alert.id not in throttle_allowed:
+                throttle_allowed[delivery.alert.id] = _opener_throttle_allows(delivery.alert, inputs)
+            if not throttle_allowed[delivery.alert.id]:
+                continue
         try:
             if _deliver_one(delivery, inputs):
                 delivered += 1
-        except Exception:
+        except Exception as error:
             # Give every destination a chance before surfacing the failure to
             # Temporal; the per-notification claim makes the retry safe for the
             # deliveries that already went out.
@@ -152,10 +167,55 @@ def deliver_alert_notifications(inputs: AlertDeliveryWorkflowInputs) -> int:
                 lifecycle_event=inputs.event,
                 notification_id=inputs.notification_id,
             )
+            _record_delivery_outcome(delivery.destination, error=str(error))
             failures += 1
     if failures:
         raise AlertDeliveryError(f"{failures} of {len(planned)} alert deliveries failed")
     return delivered
+
+
+def _opener_throttle_allows(alert: ErrorTrackingAlert, inputs: AlertDeliveryWorkflowInputs) -> bool:
+    if alert.throttle_seconds <= 0:
+        return True
+    key = f"{ALERT_THROTTLE_KEY_PREFIX}:{alert.id}:{inputs.issue_id}"
+    try:
+        client = get_client()
+        if client.set(key, inputs.notification_id, nx=True, ex=alert.throttle_seconds):
+            return True
+        holder = client.get(key)
+        allowed = holder is not None and holder.decode() == inputs.notification_id
+        if not allowed:
+            logger.info(
+                "error_tracking_alert_opener_throttled",
+                team_id=inputs.team_id,
+                alert_id=str(alert.id),
+                issue_id=inputs.issue_id,
+                notification_id=inputs.notification_id,
+            )
+        # A retry of the notification that claimed the window must still deliver.
+        return allowed
+    except Exception:
+        # Throttling is noise control: without Redis, deliver rather than drop.
+        logger.exception("error_tracking_alert_throttle_check_failed", alert_id=str(alert.id))
+        return True
+
+
+def _record_delivery_outcome(destination: ErrorTrackingAlertDestination, *, error: str | None) -> None:
+    now = timezone.now()
+    rows = ErrorTrackingAlertDestination.objects.for_team(destination.team_id, canonical=True).filter(id=destination.id)
+    try:
+        if error is None:
+            rows.update(last_delivered_at=now, consecutive_failures=0, updated_at=now)
+        else:
+            rows.update(
+                last_failure_at=now,
+                last_error=error[:MAX_RECORDED_ERROR_LENGTH],
+                consecutive_failures=F("consecutive_failures") + 1,
+                updated_at=now,
+            )
+    except Exception:
+        # The outcome record is observability, never worth failing a delivery over.
+        logger.exception("error_tracking_alert_outcome_record_failed", destination_id=str(destination.id))
 
 
 def _deliver_one(delivery: PlannedDelivery, inputs: AlertDeliveryWorkflowInputs) -> bool:
@@ -189,6 +249,7 @@ def _deliver_one(delivery: PlannedDelivery, inputs: AlertDeliveryWorkflowInputs)
             alert_id=str(delivery.alert.id),
             destination_id=str(delivery.destination.id),
         )
+        _record_delivery_outcome(delivery.destination, error="Slack integration is missing or was revoked")
         return False
 
     if not thread.external_ref.get("ts"):
@@ -198,6 +259,7 @@ def _deliver_one(delivery: PlannedDelivery, inputs: AlertDeliveryWorkflowInputs)
             return False
         channel = delivery.destination.config.get("channel")
         if not channel:
+            _record_delivery_outcome(delivery.destination, error="Destination has no Slack channel configured")
             return False
         message = build_root_message(inputs)
         response = client.chat_postMessage(channel=channel, blocks=message["blocks"], text=message["text"])
@@ -224,6 +286,7 @@ def _deliver_one(delivery: PlannedDelivery, inputs: AlertDeliveryWorkflowInputs)
         -DELIVERED_NOTIFICATION_IDS_CAP:
     ]
     thread.save(update_fields=["external_ref", "root_headline", "delivered_notification_ids", "updated_at"])
+    _record_delivery_outcome(delivery.destination, error=None)
     return True
 
 
