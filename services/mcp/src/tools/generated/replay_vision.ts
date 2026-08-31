@@ -487,6 +487,9 @@ const visionScannersCreate = (): ToolBase<typeof VisionScannersCreateSchema, Sch
         if (params.emits_signals !== undefined) {
             body['emits_signals'] = params.emits_signals
         }
+        if (params.creation_method !== undefined) {
+            body['creation_method'] = params.creation_method
+        }
         if (params.experiment_targeting !== undefined) {
             body['experiment_targeting'] = params.experiment_targeting
         }
@@ -939,6 +942,9 @@ const visionScannersUpdate = (): ToolBase<typeof VisionScannersUpdateSchema, Sch
         }
         if (params.emits_signals !== undefined) {
             body['emits_signals'] = params.emits_signals
+        }
+        if (params.creation_method !== undefined) {
+            body['creation_method'] = params.creation_method
         }
         if (params.experiment_targeting !== undefined) {
             body['experiment_targeting'] = params.experiment_targeting

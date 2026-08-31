@@ -20,7 +20,7 @@ from posthog.sync import database_sync_to_async, database_sync_to_async_pool
 
 from products.access_control.backend.facade.user_access_control import AccessControlLevel, UserAccessControl
 from products.replay_vision.backend.api.delivery import archive_delivery, provision_delivery
-from products.replay_vision.backend.api.scanners import ReplayScannerSerializer
+from products.replay_vision.backend.api.scanners import ReplayScannerSerializer, ScannerCreationMethod
 from products.replay_vision.backend.api.trigger import WorkflowStartOutcome, start_process_vision_action_workflow
 from products.replay_vision.backend.api.vision_actions import VisionActionSerializer
 from products.replay_vision.backend.billing import CREDITS_PER_DOLLAR, observation_credits_for_model
@@ -1129,6 +1129,7 @@ class CreateReplayVisionScannerTool(ReplayVisionGatesMixin, MaxTool):
                 "model": DEFAULT_SCAN_MODEL,
                 "sampling_rate": sampling_rate,
                 "enabled": enabled,
+                "creation_method": ScannerCreationMethod.MCP,
             },
             context={"get_team": lambda: self._team, "user": self._user},
         )

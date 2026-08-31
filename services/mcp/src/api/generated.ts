@@ -19800,6 +19800,24 @@ export namespace Schemas {
     } as const;
 
     /**
+     * * `ai` - AI goal flow
+     * * `template` - Template
+     * * `scratch` - From scratch
+     * * `mcp` - MCP
+     * * `api` - Direct API
+     */
+    export type CreationMethodEnum = typeof CreationMethodEnum[keyof typeof CreationMethodEnum];
+
+
+    export const CreationMethodEnum = {
+      Ai: 'ai',
+      Template: 'template',
+      Scratch: 'scratch',
+      Mcp: 'mcp',
+      Api: 'api',
+    } as const;
+
+    /**
      * * `default` - Default
      * * `template` - Template
      * * `duplicate` - Duplicate
@@ -54677,6 +54695,14 @@ export namespace Schemas {
       enabled?: boolean;
       /** When true, the prompt is augmented with the Signal side mission and the scanner emits PostHog Signals. */
       emits_signals?: boolean;
+      /** Which entry point created this scanner, for the creation funnel: ai, template, scratch, mcp, or api. Write-only and not stored — it only tags the creation event. Defaults to api.
+       *
+       * * `ai` - AI goal flow
+       * * `template` - Template
+       * * `scratch` - From scratch
+       * * `mcp` - MCP
+       * * `api` - Direct API */
+      creation_method?: CreationMethodEnum;
       /** The experiment this scanner's targeting watches, if any. Set null when the experiment targeting is removed. */
       experiment_targeting?: ScannerExperimentTargeting | null;
       /** Increments on every config-changing save. Observations snapshot this value. */
@@ -64591,6 +64617,14 @@ export namespace Schemas {
       enabled?: boolean;
       /** When true, the prompt is augmented with the Signal side mission and the scanner emits PostHog Signals. */
       emits_signals?: boolean;
+      /** Which entry point created this scanner, for the creation funnel: ai, template, scratch, mcp, or api. Write-only and not stored — it only tags the creation event. Defaults to api.
+       *
+       * * `ai` - AI goal flow
+       * * `template` - Template
+       * * `scratch` - From scratch
+       * * `mcp` - MCP
+       * * `api` - Direct API */
+      creation_method?: CreationMethodEnum;
       /** The experiment this scanner's targeting watches, if any. Set null when the experiment targeting is removed. */
       experiment_targeting?: ScannerExperimentTargeting | null;
       /** Increments on every config-changing save. Observations snapshot this value. */
