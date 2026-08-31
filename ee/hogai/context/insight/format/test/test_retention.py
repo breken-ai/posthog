@@ -83,3 +83,29 @@ class TestRetentionResultsFormatter(BaseTest):
             "2025-01-23 00:00|0|100%|0%\n"
             "2025-01-24 00:00|0|100%",
         )
+
+    def test_format_retention_ignores_empty_future_cohort(self):
+        results = [
+            {
+                "date": "2025-01-21T00:00:00-08:00",
+                "label": "Day 0",
+                "values": [{"count": 100}, {"count": 50}],
+            },
+            {"date": None, "label": "Day 1", "values": [{"count": 0}, {"count": 0}]},
+        ]
+
+        self.assertEqual(
+            RetentionResultsFormatter(
+                AssistantRetentionQuery(
+                    retentionFilter=AssistantRetentionFilter(
+                        targetEntity=AssistantRetentionEventsNode(id="event"),
+                        returningEntity=AssistantRetentionEventsNode(id="event"),
+                    )
+                ),
+                results,
+            ).format(),
+            "Date range: 2025-01-21 00:00 to 2025-01-21 00:00\n"
+            "Time interval: Day\n"
+            "Date|Number of persons on date|Day 0\n"
+            "2025-01-21 00:00|100|100%|50%",
+        )

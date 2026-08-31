@@ -24,7 +24,7 @@ class RetentionResultsFormatter:
         self._results = results
 
     def format(self) -> str:
-        results = self._results
+        results = [series for series in self._results if isinstance(series.get("date"), str)]
         period = self._period
 
         if not results:
