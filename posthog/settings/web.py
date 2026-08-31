@@ -481,6 +481,10 @@ WHITENOISE_MAX_AGE = get_from_env("WHITENOISE_MAX_AGE", 3600, type_cast=int)
 # non-prod (e.g. dev deploy smoke-tests) can raise it without weakening the prod default.
 SIGNUP_IP_THROTTLE_RATE = get_from_env("SIGNUP_IP_THROTTLE_RATE", "5/day")
 
+# Wizard endpoint request limiters — generous spam guard on top of the run-creation domain limits.
+WIZARD_RUN_CREATE_THROTTLE_RATE = get_from_env("WIZARD_RUN_CREATE_THROTTLE_RATE", "30/hour")
+WIZARD_RUN_READ_THROTTLE_RATE = get_from_env("WIZARD_RUN_READ_THROTTLE_RATE", "120/minute")
+
 # Email domains whose signups are created already-verified (skipping the email round-trip), so
 # non-prod deploy smoke-tests can sign up and act immediately. Empty by default — prod verifies
 # every signup.
@@ -659,6 +663,7 @@ SPECTACULAR_SETTINGS = {
         # TaskRunUpdate.status and ExperimentFlagCleanupTask.run_status.
         "RunStatusEnum": ["not_started", "queued", "in_progress", "completed", "failed", "cancelled"],
         "TaskRunEnvironmentEnum": "products.tasks.backend.models.TaskRun.Environment",
+        "RunEnvironmentEnum": ["local", "cloud"],
         "ReasoningEffortEnum": ["low", "medium", "high", "xhigh", "max", "ultracode", None],
         "TaskRunReasoningEffortEnum": [
             "off",
@@ -955,6 +960,16 @@ SPECTACULAR_SETTINGS = {
             "user_attachment",
             "skill_bundle",
         ],
+        "ArtifactTypeEnum": [
+            "slack_message",
+            "slack_canvas",
+            "document",
+            "spreadsheet",
+            "dashboard",
+            "file",
+            "github_pr",
+        ],
+        "WizardRunArtifactTypeEnum": ["git_diff"],
         "AdapterEnum": ["slack_message", "slack_canvas", "slack_file", "document_connector", "github_pr"],
         "TaskArtifactStatusEnum": ["active", "failed"],
         # Same-value collisions: identical choice sets appear on fields with different names.

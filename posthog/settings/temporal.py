@@ -93,6 +93,7 @@ SANDBOX_AGENT_OTEL_TRACES_URL: str | None = get_from_env("SANDBOX_AGENT_OTEL_TRA
 # It must be the wizard's own app so the LLM gateway authorizes the token like a normal wizard
 # run and the token carries the wizard's scope ceiling. Empty disables cloud wizard runs.
 WIZARD_CLOUD_RUN_OAUTH_CLIENT_ID: str = get_from_env("WIZARD_CLOUD_RUN_OAUTH_CLIENT_ID", "")
+LOCAL_WIZARD_ROOT: str | None = get_from_env("LOCAL_WIZARD_ROOT", None, optional=True)
 
 # When True, cloud-to-cloud resume can create legacy Modal filesystem snapshots
 # at end-of-run. Modal filesystem image storage is not EU-compliant, so this is
@@ -222,6 +223,7 @@ EXPERIMENTS_RECALCULATION_TASK_QUEUE = _set_temporal_task_queue("experiments-rec
 HEALTH_CHECK_TASK_QUEUE = _set_temporal_task_queue("health-check-task-queue")
 DUCKLAKE_TASK_QUEUE = _set_temporal_task_queue("ducklake-task-queue")
 TASKS_TASK_QUEUE = _set_temporal_task_queue("tasks-task-queue")
+WIZARD_TASK_QUEUE = _set_temporal_task_queue("wizard-task-queue")
 WIZARD_RUN_ARTIFACTS_S3_BUCKET = os.getenv("WIZARD_RUN_ARTIFACTS_S3_BUCKET", "")
 TASKS_DISPATCHER_BATCH_SIZE = get_from_env("TASKS_DISPATCHER_BATCH_SIZE", 50, type_cast=int)
 TASKS_DISPATCHER_CONCURRENCY = get_from_env("TASKS_DISPATCHER_CONCURRENCY", 20, type_cast=int)
