@@ -22,6 +22,7 @@ export const HogFlowsListQueryParams = /* @__PURE__ */ zod.object({
     id: zod.string().optional(),
     limit: zod.number().optional().describe('Number of results to return per page.'),
     offset: zod.number().optional().describe('The initial index from which to return the results.'),
+    optimisation_enabled: zod.boolean().optional().describe('Only workflows someone turned suggestions on for.'),
     search: zod.string().optional().describe('Case-insensitive search across workflow name and description.'),
     status: zod
         .enum(['active', 'archived', 'draft'])

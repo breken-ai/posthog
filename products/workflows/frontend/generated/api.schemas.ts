@@ -1793,6 +1793,10 @@ export type HogFlowsListParams = {
      */
     offset?: number
     /**
+     * Only workflows someone turned suggestions on for.
+     */
+    optimisation_enabled?: boolean
+    /**
      * Case-insensitive search across workflow name and description.
      */
     search?: string
