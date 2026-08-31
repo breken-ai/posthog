@@ -13,8 +13,8 @@ unrelated cases don't drag the rollup down.
 
 * ``CalledTargetTool`` — did the agent successfully invoke
   ``expected[<scorer_name>]["tool"]`` at least once? Returns 1.0/0.0.
-* ``LastTargetTool`` — did the agent's final successful tool call match
-  ``expected[<scorer_name>]["tool"]``? Returns 1.0/0.0.
+* ``FirstRelevantTool`` — did the agent select the expected tool for its first
+  successful call among a supplied set of comparable tools? Returns 1.0/0.0.
 * ``RecoveredToCorrectTool`` — when prompted to use a wrong tool name
   (deprecated or typo'd), did the agent end up calling a correct
   replacement?
@@ -43,7 +43,7 @@ __all__ = [
     "DrilledIntoSchema",
     "ExecBeforeRender",
     "InfoBeforeCall",
-    "LastTargetTool",
+    "FirstRelevantTool",
     "PreferredSearchOverTools",
     "RanPythonPostProcessing",
     "RecoveredToCorrectTool",
@@ -143,11 +143,14 @@ class CalledTargetTool(Scorer):
         )
 
 
-class LastTargetTool(Scorer):
-    """Binary: did the final successful tool call match the expected target?"""
+class FirstRelevantTool(Scorer):
+    """Binary: did the first successful call among ``relevant_tools`` match the target?"""
+
+    def __init__(self, *, relevant_tools: frozenset[str]) -> None:
+        self.relevant_tools = relevant_tools
 
     def _name(self) -> str:
-        return "last_target_tool"
+        return "first_relevant_tool"
 
     def _run_eval_sync(self, output: dict | None, expected: dict | None = None, **kwargs) -> Score:
         target = _read_tool(expected, self._name())
@@ -158,16 +161,20 @@ class LastTargetTool(Scorer):
         if parser is None:
             return Score(name=self._name(), score=0.0, metadata={"reason": "No raw log", "tool": target})
 
-        successful = [call for call in parser.get_tool_calls() if not call.is_error]
-        if not successful:
-            return Score(name=self._name(), score=0.0, metadata={"reason": "No successful tool calls", "tool": target})
+        relevant = [call for call in parser.get_tool_calls() if not call.is_error and call.name in self.relevant_tools]
+        if not relevant:
+            return Score(
+                name=self._name(),
+                score=0.0,
+                metadata={"reason": "No successful relevant tool calls", "tool": target},
+            )
 
-        last = successful[-1]
-        score = 1.0 if last.name == target else 0.0
+        first = min(relevant, key=lambda call: call.position)
+        score = 1.0 if first.name == target else 0.0
         return Score(
             name=self._name(),
             score=score,
-            metadata={"expected_tool": target, "last_tool": last.name, "call_id": last.call_id},
+            metadata={"expected_tool": target, "first_relevant_tool": first.name, "call_id": first.call_id},
         )
 
 
