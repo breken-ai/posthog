@@ -477,11 +477,22 @@ class Task(DeletedMetaFields, models.Model):
         managed = True
         indexes = [
             models.Index(fields=["signal_report"], name="posthog_task_signal_report_idx"),
-            models.Index(fields=["archived"], name="posthog_task_archived_idx"),
-            models.Index(fields=["team", "-created_at", "-id"], name="posthog_task_team_created_idx"),
+            # The task list pins `team`, `deleted`, `internal` and `archived` before it sorts, so
+            # all four sit in the index the sort reads: `deleted` as the predicate (a deleted row
+            # is never listed), the other two as equality columns ahead of the sort keys. Without
+            # them Postgres seeks the team and then discards rows until the page fills.
+            models.Index(
+                fields=["team", "internal", "archived", "-created_at", "-id"],
+                condition=models.Q(deleted=False),
+                name="posthog_task_team_live_crt_idx",
+            ),
             models.Index(fields=["team", "created_by", "-created_at", "-id"], name="posthog_task_team_creator_idx"),
             models.Index(fields=["channel", "-created_at"], name="posthog_task_channel_feed_idx"),
-            models.Index(fields=["team", "-last_activity_at", "-id"], name="posthog_task_team_activity_idx"),
+            models.Index(
+                fields=["team", "internal", "archived", "-last_activity_at", "-id"],
+                condition=models.Q(deleted=False),
+                name="posthog_task_team_live_act_idx",
+            ),
             models.Index(fields=["channel", "-last_activity_at"], name="posthog_task_chan_activity_idx"),
             models.Index(fields=["loop"], name="posthog_task_loop_idx"),
             models.Index(fields=["hog_flow_id", "-created_at"], name="posthog_task_hog_flow_idx"),
