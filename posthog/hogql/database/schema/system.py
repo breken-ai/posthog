@@ -1173,43 +1173,58 @@ session_recordings: PostgresTable = PostgresTable(
             name="session_id", description="Session identifier; matches events.$session_id."
         ),
         "team_id": IntegerDatabaseField(name="team_id"),
-        "distinct_id": StringDatabaseField(name="distinct_id", description="Distinct id of the user/device recorded."),
-        "duration": IntegerDatabaseField(
-            name="duration", description="Total recording length in seconds (active + inactive)."
+        "distinct_id": StringDatabaseField(
+            name="distinct_id", nullable=True, description="Distinct id of the user/device recorded."
         ),
-        "active_seconds": IntegerDatabaseField(name="active_seconds", description="Seconds of active user engagement."),
-        "inactive_seconds": IntegerDatabaseField(name="inactive_seconds", description="Seconds with no user activity."),
-        "start_time": DateTimeDatabaseField(name="start_time", description="When the recording started."),
-        "end_time": DateTimeDatabaseField(name="end_time", description="When the recording ended."),
-        "click_count": IntegerDatabaseField(name="click_count", description="Number of clicks captured."),
-        "keypress_count": IntegerDatabaseField(name="keypress_count", description="Number of keypresses captured."),
+        "duration": IntegerDatabaseField(
+            name="duration", nullable=True, description="Total recording length in seconds (active + inactive)."
+        ),
+        "active_seconds": IntegerDatabaseField(
+            name="active_seconds", nullable=True, description="Seconds of active user engagement."
+        ),
+        "inactive_seconds": IntegerDatabaseField(
+            name="inactive_seconds", nullable=True, description="Seconds with no user activity."
+        ),
+        "start_time": DateTimeDatabaseField(
+            name="start_time", nullable=True, description="When the recording started."
+        ),
+        "end_time": DateTimeDatabaseField(name="end_time", nullable=True, description="When the recording ended."),
+        "click_count": IntegerDatabaseField(
+            name="click_count", nullable=True, description="Number of clicks captured."
+        ),
+        "keypress_count": IntegerDatabaseField(
+            name="keypress_count", nullable=True, description="Number of keypresses captured."
+        ),
         "mouse_activity_count": IntegerDatabaseField(
-            name="mouse_activity_count", description="Number of mouse-activity events captured."
+            name="mouse_activity_count", nullable=True, description="Number of mouse-activity events captured."
         ),
         "console_log_count": IntegerDatabaseField(
-            name="console_log_count", description="Number of console.log messages captured."
+            name="console_log_count", nullable=True, description="Number of console.log messages captured."
         ),
         "console_warn_count": IntegerDatabaseField(
-            name="console_warn_count", description="Number of console.warn messages captured."
+            name="console_warn_count", nullable=True, description="Number of console.warn messages captured."
         ),
         "console_error_count": IntegerDatabaseField(
-            name="console_error_count", description="Number of console.error messages captured."
+            name="console_error_count", nullable=True, description="Number of console.error messages captured."
         ),
-        "start_url": StringDatabaseField(name="start_url", description="URL where the recording started."),
-        "_deleted": BooleanDatabaseField(name="deleted", hidden=True),
+        "start_url": StringDatabaseField(
+            name="start_url", nullable=True, description="URL where the recording started."
+        ),
+        "_deleted": BooleanDatabaseField(name="deleted", nullable=True, hidden=True),
         "deleted": ExpressionField(
             name="deleted",
+            nullable=True,
             expr=ast.Call(name="toInt", args=[ast.Field(chain=["_deleted"])]),
             description="1 if the recording has been deleted, 0 otherwise.",
         ),
         "created_at": DateTimeDatabaseField(
-            name="created_at", description="When the recording metadata row was created."
+            name="created_at", nullable=True, description="When the recording metadata row was created."
         ),
         "retention_period_days": IntegerDatabaseField(
-            name="retention_period_days", description="How long the recording is retained, in days."
+            name="retention_period_days", nullable=True, description="How long the recording is retained, in days."
         ),
         "storage_version": StringDatabaseField(
-            name="storage_version", description="Storage format version of the recording payload."
+            name="storage_version", nullable=True, description="Storage format version of the recording payload."
         ),
     },
 )
@@ -2515,17 +2530,15 @@ usage_metrics: PostgresTable = PostgresTable(
     name="usage_metrics",
     postgres_table_name="posthog_groupusagemetric",
     access_scope="usage_metric",
-    description="Per-group usage metric definitions shown on group dashboards; one row per metric.",
+    description="Team-level usage metric definitions shown on group and person profiles; one row per metric.",
     fields={
         "id": StringDatabaseField(name="id", description="Usage metric UUID."),
         "team_id": IntegerDatabaseField(name="team_id"),
         "group_type_index": IntegerDatabaseField(
-            name="group_type_index", description="Group type the metric applies to (0-4)."
+            name="group_type_index", description="Historical group type metadata; not used to scope metrics."
         ),
         "name": StringDatabaseField(name="name", description="Metric name."),
-        "format": StringDatabaseField(
-            name="format", description="Display format, e.g. 'numeric', 'currency', 'percentage'."
-        ),
+        "format": StringDatabaseField(name="format", description="Display format: 'numeric' or 'currency'."),
         "interval": IntegerDatabaseField(
             name="interval", description="Rolling window length, in days, the metric is computed over."
         ),
@@ -2535,11 +2548,11 @@ usage_metrics: PostgresTable = PostgresTable(
         "filters": StringJSONDatabaseField(
             name="filters", description="JSON event filters defining what the metric counts."
         ),
-        "math": StringDatabaseField(name="math", description="Aggregation applied, e.g. 'total', 'unique', 'sum'."),
+        "math": StringDatabaseField(name="math", description="Aggregation applied: 'count' or 'sum'."),
         "math_property": StringDatabaseField(
             name="math_property",
             nullable=True,
-            description="Property aggregated when math is property-based, e.g. sum.",
+            description="Numeric property summed when math is 'sum'; NULL for 'count'.",
         ),
     },
 )
