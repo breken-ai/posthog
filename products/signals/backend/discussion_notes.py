@@ -54,6 +54,9 @@ _MAX_QUESTION_CHARS = 4_000
 _REQUIRED_NOTE_SCOPES = ("signal_scout:write", "llm_skill:write")
 
 _PROMPT_PREFIX = "let's discuss this posthog inbox report:"
+# The web Inbox wraps the question in a lead line carrying the report URL, then the question after a
+# blank line. Keep in sync with `buildDiscussReportPrompt` in `inboxTaskKickoffLogic.ts`.
+_WEB_PROMPT_PREFIX = "answer this question about the posthog inbox report at "
 _DESKTOP_DESCRIPTION_PREFIX = "Discuss report: "
 # Keep in sync with `buildDiscussDescription` in the Desktop inbox hook.
 _DESKTOP_DESCRIPTION_MAX_CHARS = 200
@@ -162,7 +165,10 @@ def _scopes_allow_note_write(api_scopes: Sequence[str]) -> bool:
 
 def _extract_question(text: str, *, report_title: str | None, report_id: str | None) -> str:
     stripped = text.strip()
-    if stripped.lower().startswith(_PROMPT_PREFIX):
+    lowered = stripped.lower()
+    # Both the legacy prompt and the web kickoff wrap the question in a lead line, so the question is
+    # whatever follows the first newline.
+    if lowered.startswith(_PROMPT_PREFIX) or lowered.startswith(_WEB_PROMPT_PREFIX):
         _, _, question = stripped.partition("\n")
         return question.strip()
 

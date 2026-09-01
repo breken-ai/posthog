@@ -19,6 +19,14 @@ class TestExtractQuestion(SimpleTestCase):
         [
             ("strips_url_prefix", _PROMPT, None, None, "Is this still happening?"),
             (
+                "strips_web_kickoff_prefix",
+                "Answer this question about the PostHog Inbox report at "
+                "https://us.posthog.com/project/2/inbox/reports/x:\n\nIs this still happening?",
+                None,
+                None,
+                "Is this still happening?",
+            ),
+            (
                 "no_prefix_returns_whole",
                 "Why does stripe not sync?",
                 None,
