@@ -640,6 +640,7 @@ SPECTACULAR_SETTINGS = {
             "products.ai_observability.backend.models.evaluation_reports.EvaluationReport.Frequency"
         ),
         "HogFlowStatusEnum": "products.workflows.backend.models.hog_flow.hog_flow.HogFlow.State",
+        "HogFlowOriginProductEnum": "products.workflows.backend.models.hog_flow.hog_flow.HogFlow.OriginProduct",
         "MCPAuthTypeEnum": "products.mcp_store.backend.models.AUTH_TYPE_CHOICES",
         "UtmIssueKindEnum": "products.marketing_analytics.backend.services.types.UTM_ISSUE_KIND_CHOICES",
         # Shared by ConversionGoalSummary.kind and GoalExplanation.kind (same choice set).

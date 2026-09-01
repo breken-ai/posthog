@@ -41649,6 +41649,16 @@ export namespace Schemas {
       Archived: 'archived',
     } as const;
 
+    /**
+     * * `loops` - Loops
+     */
+    export type HogFlowOriginProductEnum = typeof HogFlowOriginProductEnum[keyof typeof HogFlowOriginProductEnum];
+
+
+    export const HogFlowOriginProductEnum = {
+      Loops: 'loops',
+    } as const;
+
     export interface HogFlowMasking {
       /**
          * Seconds (60 to ~94M / 3y) to suppress repeat firings of the same hash.
@@ -41949,6 +41959,10 @@ export namespace Schemas {
        * * `active` - Active
        * * `archived` - Archived */
       status?: HogFlowStatusEnum;
+      /** Product surface that owns this workflow (e.g. `loops` for Desktop loops). Set on create, immutable after. Filter the list with `?origin_product=`.
+       *
+       * * `loops` - Loops */
+      origin_product?: HogFlowOriginProductEnum | null;
       readonly created_at: string;
       readonly created_by: UserBasic;
       readonly updated_at: string;
@@ -42131,6 +42145,7 @@ export namespace Schemas {
       readonly description: string;
       readonly version: number;
       readonly status: HogFlowStatusEnum;
+      readonly origin_product: HogFlowOriginProductEnum | null;
       readonly created_at: string;
       readonly created_by: UserBasic;
       readonly updated_at: string;
@@ -62655,6 +62670,10 @@ export namespace Schemas {
        * * `active` - Active
        * * `archived` - Archived */
       status?: HogFlowStatusEnum;
+      /** Product surface that owns this workflow (e.g. `loops` for Desktop loops). Set on create, immutable after. Filter the list with `?origin_product=`.
+       *
+       * * `loops` - Loops */
+      origin_product?: HogFlowOriginProductEnum | null;
       readonly created_at?: string;
       readonly created_by?: UserBasic;
       readonly updated_at?: string;
@@ -94394,6 +94413,10 @@ export namespace Schemas {
      */
     offset?: number;
     /**
+     * Filter to workflows owned by a product surface, e.g. `loops` for Desktop loops.
+     */
+    origin_product?: HogFlowsListOriginProduct;
+    /**
      * Case-insensitive search across workflow name and description.
      */
     search?: string;
@@ -94413,6 +94436,13 @@ export namespace Schemas {
     type?: HogFlowsListType;
     updated_at?: string;
     };
+
+    export type HogFlowsListOriginProduct = typeof HogFlowsListOriginProduct[keyof typeof HogFlowsListOriginProduct];
+
+
+    export const HogFlowsListOriginProduct = {
+      Loops: 'loops',
+    } as const;
 
     export type HogFlowsListStatus = typeof HogFlowsListStatus[keyof typeof HogFlowsListStatus];
 

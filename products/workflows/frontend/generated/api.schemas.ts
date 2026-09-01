@@ -237,6 +237,15 @@ export const HogFlowStatusEnumApi = {
 } as const
 
 /**
+ * * `loops` - Loops
+ */
+export type HogFlowOriginProductEnumApi = (typeof HogFlowOriginProductEnumApi)[keyof typeof HogFlowOriginProductEnumApi]
+
+export const HogFlowOriginProductEnumApi = {
+    Loops: 'loops',
+} as const
+
+/**
  * * `engineering` - Engineering
  * * `data` - Data
  * * `product` - Product Management
@@ -303,6 +312,7 @@ export interface HogFlowMinimalApi {
     readonly description: string
     readonly version: number
     readonly status: HogFlowStatusEnumApi
+    readonly origin_product: HogFlowOriginProductEnumApi | null
     readonly created_at: string
     readonly created_by: UserBasicApi
     readonly updated_at: string
@@ -574,6 +584,10 @@ export interface HogFlowApi {
      * * `active` - Active
      * * `archived` - Archived */
     status?: HogFlowStatusEnumApi
+    /** Product surface that owns this workflow (e.g. `loops` for Desktop loops). Set on create, immutable after. Filter the list with `?origin_product=`.
+     *
+     * * `loops` - Loops */
+    origin_product?: HogFlowOriginProductEnumApi | null
     readonly created_at: string
     readonly created_by: UserBasicApi
     readonly updated_at: string
@@ -652,6 +666,10 @@ export interface PatchedHogFlowApi {
      * * `active` - Active
      * * `archived` - Archived */
     status?: HogFlowStatusEnumApi
+    /** Product surface that owns this workflow (e.g. `loops` for Desktop loops). Set on create, immutable after. Filter the list with `?origin_product=`.
+     *
+     * * `loops` - Loops */
+    origin_product?: HogFlowOriginProductEnumApi | null
     readonly created_at?: string
     readonly created_by?: UserBasicApi
     readonly updated_at?: string
@@ -1565,6 +1583,10 @@ export type HogFlowsListParams = {
      */
     offset?: number
     /**
+     * Filter to workflows owned by a product surface, e.g. `loops` for Desktop loops.
+     */
+    origin_product?: HogFlowsListOriginProduct
+    /**
      * Case-insensitive search across workflow name and description.
      */
     search?: string
@@ -1584,6 +1606,12 @@ export type HogFlowsListParams = {
     type?: HogFlowsListType
     updated_at?: string
 }
+
+export type HogFlowsListOriginProduct = (typeof HogFlowsListOriginProduct)[keyof typeof HogFlowsListOriginProduct]
+
+export const HogFlowsListOriginProduct = {
+    Loops: 'loops',
+} as const
 
 export type HogFlowsListStatus = (typeof HogFlowsListStatus)[keyof typeof HogFlowsListStatus]
 
