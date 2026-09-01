@@ -6,7 +6,7 @@ import posthog from 'posthog-js'
 import { lemonToast } from '@posthog/lemon-ui'
 
 import { dashboardsModel } from '~/models/dashboardsModel'
-import { DashboardTile, DashboardTileId, DashboardType, QueryBasedInsightModel } from '~/types'
+import { DashboardTile, DashboardTileIdOrNew, DashboardType, QueryBasedInsightModel } from '~/types'
 
 import { getImageOnlyTextCardImage } from 'products/dashboards/frontend/components/ImageTile/imageTileUtils'
 
@@ -19,17 +19,14 @@ export interface TextTileForm {
 
 export interface TextCardModalProps {
     dashboard: DashboardType<QueryBasedInsightModel>
-    textTileId: DashboardTileId | null
+    textTileId: DashboardTileIdOrNew
     onClose: () => void
     defaultTransparentBackground?: boolean
 }
 
 const MAX_TEXT_CARD_BODY_LENGTH = 4000
 
-const getExistingTextTile = (
-    dashboard: DashboardType<QueryBasedInsightModel>,
-    textTileId: DashboardTileId
-): TextTileForm => {
+const getExistingTextTile = (dashboard: DashboardType<QueryBasedInsightModel>, textTileId: number): TextTileForm => {
     const tile = dashboard.tiles?.find((tt) => tt.id === textTileId)
     return {
         body: tile?.text?.body || '',

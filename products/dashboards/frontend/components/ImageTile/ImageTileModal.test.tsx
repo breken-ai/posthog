@@ -11,7 +11,7 @@ import { preflightLogic } from 'lib/logic/preflightLogic'
 import { initKeaTests } from '~/test/init'
 import {
     AccessControlLevel,
-    type DashboardTileId,
+    type DashboardTileIdOrNew,
     DashboardType,
     PreflightStatus,
     QueryBasedInsightModel,
@@ -87,7 +87,7 @@ describe('ImageTileModal', () => {
     })
 
     function renderModal(
-        imageTileId: DashboardTileId | null = null,
+        imageTileId: DashboardTileIdOrNew = null,
         body?: string
     ): { onClose: jest.Mock; uploadOptions: Parameters<typeof useUploadFiles>[0] } {
         const onClose = jest.fn()
