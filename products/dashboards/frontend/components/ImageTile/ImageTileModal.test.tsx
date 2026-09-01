@@ -118,7 +118,7 @@ describe('ImageTileModal', () => {
         })
 
         expect(getDataAttr('image-tile-preview-image')).toHaveAttribute('src', 'https://example.com/portrait.png')
-        expect(screen.getByText(/Drag or use arrow keys to reposition the image/)).toBeInTheDocument()
+        expect(screen.queryByText(/Drag or use arrow keys to reposition the image/)).not.toBeInTheDocument()
 
         expect(getDataAttr('image-tile-preview-image')).toHaveAttribute('alt', 'Dashboard image')
         expect(getDataAttr('save-new-image-tile')).toHaveAttribute('aria-disabled', 'false')
@@ -194,6 +194,7 @@ describe('ImageTileModal', () => {
         expect(getDataAttr('image-tile-preview-image')).toHaveStyle({
             objectPosition: '25% 75%',
         })
+        expect(screen.getByText(/Drag or use arrow keys to reposition the image/)).toBeInTheDocument()
     })
 
     it('keeps the full image visible in show full image mode', () => {
@@ -203,7 +204,7 @@ describe('ImageTileModal', () => {
         )
 
         expect(getDataAttr('image-tile-preview-image')).toHaveClass('object-contain')
-        expect(screen.getByText(/Drag or use arrow keys to reposition the image/)).toBeInTheDocument()
+        expect(screen.queryByText(/Drag or use arrow keys to reposition the image/)).not.toBeInTheDocument()
     })
 
     it('updates the image display mode', () => {
