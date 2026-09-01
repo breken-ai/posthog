@@ -445,12 +445,6 @@ export function ImageTileModal({
                     )}
                     {image && (
                         <>
-                            {image.layout === 'cover' && (
-                            <span className="text-xs text-secondary">
-                                Drag or use arrow keys to reposition the image. Current position:{' '}
-                                {Math.round(image.position.x)}% horizontal, {Math.round(image.position.y)}% vertical.
-                            </span>
-                            )}
                             <div className="flex flex-col gap-1">
                                 <LemonLabel htmlFor="image-tile-alt">Alt text</LemonLabel>
                                 <LemonInput

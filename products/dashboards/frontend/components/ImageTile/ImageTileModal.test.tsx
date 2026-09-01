@@ -194,7 +194,6 @@ describe('ImageTileModal', () => {
         expect(getDataAttr('image-tile-preview-image')).toHaveStyle({
             objectPosition: '25% 75%',
         })
-        expect(screen.getByText(/Drag or use arrow keys to reposition the image/)).toBeInTheDocument()
     })
 
     it('keeps the full image visible in show full image mode', () => {
