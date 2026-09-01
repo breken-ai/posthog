@@ -43,7 +43,7 @@ export function getImageTilePosition(value: unknown): ImageTilePosition {
     }
 }
 
-export function getImageTileLayout(value: unknown): ImageTileLayout {
+export function getImageTileLayout(value: ImageTileLayout | null | undefined): ImageTileLayout {
     return value === 'cover' ? 'cover' : 'contain'
 }
 
