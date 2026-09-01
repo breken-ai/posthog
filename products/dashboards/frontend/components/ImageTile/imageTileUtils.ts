@@ -3,6 +3,7 @@ import type { JSONContent } from '@tiptap/core'
 import type { TiptapMarkdownConverter } from 'lib/utils/markdown'
 
 export type ImageTileLayout = 'contain' | 'cover'
+export type ImageTileId = number | null
 
 export interface ImageTilePosition {
     x: number

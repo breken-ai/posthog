@@ -28,7 +28,7 @@ import {
     imageTileToMarkdown,
     imageTilePositionToCss,
 } from './imageTileUtils'
-import type { ImageTileImage, ImageTilePosition } from './imageTileUtils'
+import type { ImageTileId, ImageTileImage, ImageTilePosition } from './imageTileUtils'
 
 const IMAGE_TILE_LAYOUT_OPTIONS = [
     { value: 'contain', label: 'Show full image' },
@@ -63,7 +63,7 @@ export function ImageTileModal({
     isOpen: boolean
     onClose: () => void
     dashboard: DashboardType<QueryBasedInsightModel>
-    imageTileId: number | null
+    imageTileId: ImageTileId
 }): JSX.Element {
     const isNewTile = imageTileId === null
     const modalLogicProps = {

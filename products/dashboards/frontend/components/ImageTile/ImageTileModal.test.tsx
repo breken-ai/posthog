@@ -12,6 +12,7 @@ import { initKeaTests } from '~/test/init'
 import { AccessControlLevel, DashboardType, PreflightStatus, QueryBasedInsightModel } from '~/types'
 
 import { ImageTileModal } from 'products/dashboards/frontend/components/ImageTile/ImageTileModal'
+import type { ImageTileId } from 'products/dashboards/frontend/components/ImageTile/imageTileUtils'
 
 jest.mock('lib/hooks/useUploadFiles', () => ({
     useUploadFiles: jest.fn(),
@@ -81,7 +82,7 @@ describe('ImageTileModal', () => {
     })
 
     function renderModal(
-        imageTileId: number | null = null,
+        imageTileId: ImageTileId = null,
         body?: string
     ): { onClose: jest.Mock; uploadOptions: Parameters<typeof useUploadFiles>[0] } {
         const onClose = jest.fn()
