@@ -40,6 +40,7 @@ import {
 import api, { ApiMethodOptions, getJSONOrNull } from 'lib/api'
 import { ApiError, isAccessDeniedError } from 'lib/api-error'
 import { DataColorTheme } from 'lib/colors'
+import { textCardConverter } from 'lib/components/Cards/TextCard/textCardMarkdown'
 import { OrganizationMembershipLevel } from 'lib/constants'
 import { FEATURE_FLAGS } from 'lib/constants'
 import { Dayjs, dayjs, now } from 'lib/dayjs'
@@ -115,7 +116,9 @@ import {
     TileLayout,
 } from '~/types'
 
+import { getImageOnlyTextCardImage } from 'products/dashboards/frontend/components/ImageTile/imageTileUtils'
 import { DashboardGridCompaction } from 'products/dashboards/frontend/dashboardCustomization'
+import type { DashboardAddTileType } from 'products/dashboards/frontend/types'
 
 import type { FeatureFlagsSet } from '../../lib/logic/featureFlagLogic'
 import type { Node } from '../../queries/schema/schema-general'
@@ -209,6 +212,11 @@ export interface PendingInsertion {
     w: number | null
 }
 
+function parseDashboardTileId(tileId: string | undefined): number | null {
+    const parsedTileId = Number(tileId)
+    return Number.isNaN(parsedTileId) ? null : parsedTileId
+}
+
 const tileLayoutsFromDashboard = (
     dashboard: DashboardType<QueryBasedInsightModel> | null | undefined
 ): Record<number, DashboardTile['layouts']> => {
@@ -272,7 +280,7 @@ export interface dashboardLogicValues {
     blockRefresh: boolean
     breadcrumbs: Breadcrumb[]
     breakdownValuesIncomplete: boolean
-    buttonTileId: number | 'new' | null
+    buttonTileId: number | null
     canAutoPreview: boolean
     canEditDashboard: boolean
     canRestrictDashboard: boolean
@@ -354,6 +362,7 @@ export interface dashboardLogicValues {
     shouldUseStreaming: boolean
     showApplyFiltersBanner: boolean
     showButtonTileModal: boolean
+    showImageTileModal: boolean
     showRetentionBanner: boolean
     showSubscriptions: boolean
     showTextTileModal: boolean
@@ -366,7 +375,7 @@ export interface dashboardLogicValues {
         themeId: number | null
     } | null
     terraformModalOpen: boolean
-    textTileId: number | 'new' | null
+    textTileId: number | null
     textTiles: DashboardTile<QueryBasedInsightModel<Node<Record<string, any>>>>[]
     tiles: DashboardTile<QueryBasedInsightModel<Node<Record<string, any>>>>[]
     urlFilters: DashboardFilter
@@ -599,6 +608,15 @@ export interface dashboardLogicActions {
     openAddInsightModal: () => {
         value: true
     }
+    openButtonTileModal: () => {
+        value: true
+    }
+    openImageTileModal: () => {
+        value: true
+    }
+    openTextTileModal: () => {
+        value: true
+    }
     overrideVariableValue: (
         variableId: string,
         value: any,
@@ -729,8 +747,8 @@ export interface dashboardLogicActions {
     setBreakdownFilter: (breakdown_filter: BreakdownFilter | null) => {
         breakdown_filter: BreakdownFilter | null
     }
-    setButtonTileId: (buttonTileId: number | 'new' | null) => {
-        buttonTileId: number | 'new' | null
+    setButtonTileId: (buttonTileId: number | null) => {
+        buttonTileId: number | null
     }
     setDashboardCustomizeMenuOpen: (open: boolean) => {
         open: boolean
@@ -857,8 +875,8 @@ export interface dashboardLogicActions {
     setTerraformModalOpen: (open: boolean) => {
         open: boolean
     }
-    setTextTileId: (textTileId: number | 'new' | null) => {
-        textTileId: number | 'new' | null
+    setTextTileId: (textTileId: number | null) => {
+        textTileId: number | null
     }
     setTileOverride: (tile: DashboardTile<QueryBasedInsightModel>) => {
         tile: DashboardTile<QueryBasedInsightModel<Node<Record<string, any>>>>
@@ -1404,9 +1422,12 @@ export const dashboardLogic = kea<dashboardLogicType>([
             toDashboard,
             toDashboardName,
         }),
-        setTextTileId: (textTileId: number | 'new' | null) => ({ textTileId }),
-        setButtonTileId: (buttonTileId: number | 'new' | null) => ({ buttonTileId }),
+        setTextTileId: (textTileId: number | null) => ({ textTileId }),
+        setButtonTileId: (buttonTileId: number | null) => ({ buttonTileId }),
         openAddInsightModal: true,
+        openTextTileModal: true,
+        openImageTileModal: true,
+        openButtonTileModal: true,
         setTileOverride: (tile: DashboardTile<QueryBasedInsightModel>) => ({ tile }),
 
         /**
@@ -2289,12 +2310,21 @@ export const dashboardLogic = kea<dashboardLogicType>([
             false,
             {
                 setTextTileId: (_, { textTileId }) => !!textTileId,
+                openTextTileModal: () => true,
+            },
+        ],
+        showImageTileModal: [
+            false,
+            {
+                openImageTileModal: () => true,
+                setTextTileId: () => false,
             },
         ],
         textTileId: [
-            null as number | 'new' | null,
+            null as number | null,
             {
                 setTextTileId: (_, { textTileId }) => textTileId,
+                openTextTileModal: () => null,
             },
         ],
 
@@ -2302,12 +2332,14 @@ export const dashboardLogic = kea<dashboardLogicType>([
             false,
             {
                 setButtonTileId: (_, { buttonTileId }) => !!buttonTileId,
+                openButtonTileModal: () => true,
             },
         ],
         buttonTileId: [
-            null as number | 'new' | null,
+            null as number | null,
             {
                 setButtonTileId: (_, { buttonTileId }) => buttonTileId,
+                openButtonTileModal: () => null,
             },
         ],
 
@@ -3423,13 +3455,16 @@ export const dashboardLogic = kea<dashboardLogicType>([
             actions.updateLayouts({ ...values.layouts, sm: newSmLayout })
 
             // The inline insert has now landed at the line — report it (outcome, vs the option-clicked intent).
-            const insertedTileType = newTile.text
-                ? 'text_card'
-                : newTile.button_tile
-                  ? 'button'
-                  : newTile.widget
-                    ? 'widget'
-                    : 'insight'
+            let insertedTileType: DashboardAddTileType = 'insight'
+            if (newTile.text) {
+                insertedTileType = getImageOnlyTextCardImage(textCardConverter, newTile.text.body)
+                    ? 'image'
+                    : 'text_card'
+            } else if (newTile.button_tile) {
+                insertedTileType = 'button'
+            } else if (newTile.widget) {
+                insertedTileType = 'widget'
+            }
             eventUsageLogic.actions.reportDashboardTileInsertedInline(
                 insertedTileType,
                 props.id,
@@ -4972,19 +5007,20 @@ export const dashboardLogic = kea<dashboardLogicType>([
             actions.setButtonTileId(null)
             actions.setDashboardMode(DashboardMode.Sharing, DashboardEventSource.Browser)
         },
-        '/dashboard/:id/text-tiles/:textTileId': ({ textTileId }) => {
+        '/dashboard/:id/tiles/:tileId': ({ tileId }, searchParams) => {
             actions.setSubscriptionMode(false, undefined)
             actions.setDashboardMode(null, DashboardEventSource.Browser)
-            actions.setButtonTileId(null)
-            actions.setTextTileId(textTileId === undefined ? 'new' : textTileId !== 'new' ? Number(textTileId) : 'new')
-        },
-        '/dashboard/:id/button-tiles/:buttonTileId': ({ buttonTileId }) => {
-            actions.setSubscriptionMode(false, undefined)
-            actions.setDashboardMode(null, DashboardEventSource.Browser)
-            actions.setTextTileId(null)
-            actions.setButtonTileId(
-                buttonTileId === undefined ? 'new' : buttonTileId !== 'new' ? Number(buttonTileId) : 'new'
-            )
+            if (tileId === 'new') {
+                if (searchParams.tileType === 'text') {
+                    actions.openTextTileModal()
+                } else if (searchParams.tileType === 'button') {
+                    actions.openButtonTileModal()
+                }
+                return
+            }
+            const parsedTileId = parseDashboardTileId(tileId)
+            actions.setTextTileId(parsedTileId)
+            actions.setButtonTileId(parsedTileId)
         },
     })),
 ])

@@ -116,6 +116,20 @@
             "readOnlyHint": true
         }
     },
+    "dashboard-create-text-tile": {
+        "description": "DEPRECATED: renamed to dashboard-create-tile. This alias forwards to dashboard-create-tile and will be removed. Call dashboard-create-tile directly with the same arguments.",
+        "category": "Dashboards",
+        "feature": "dashboards",
+        "summary": "Deprecated alias for dashboard-create-tile.",
+        "title": "Create dashboard text tile (deprecated)",
+        "required_scopes": ["dashboard:write"],
+        "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true,
+            "readOnlyHint": false
+        }
+    },
     "llma-skill-archive": {
         "description": "DEPRECATED: renamed to skill-archive. This alias forwards to skill-archive and will be removed. Call skill-archive directly with the same arguments.",
         "category": "Skills",

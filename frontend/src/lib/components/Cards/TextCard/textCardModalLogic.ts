@@ -8,6 +8,10 @@ import { lemonToast } from '@posthog/lemon-ui'
 import { dashboardsModel } from '~/models/dashboardsModel'
 import { DashboardTile, DashboardType, QueryBasedInsightModel } from '~/types'
 
+import { getImageOnlyTextCardImage } from 'products/dashboards/frontend/components/ImageTile/imageTileUtils'
+
+import { textCardConverter } from './textCardMarkdown'
+
 export interface TextTileForm {
     body: string
     transparent_background: boolean
@@ -15,8 +19,9 @@ export interface TextTileForm {
 
 export interface TextCardModalProps {
     dashboard: DashboardType<QueryBasedInsightModel>
-    textTileId: number | 'new'
+    textTileId: number | null
     onClose: () => void
+    defaultTransparentBackground?: boolean
 }
 
 const MAX_TEXT_CARD_BODY_LENGTH = 4000
@@ -100,7 +105,10 @@ export type textCardModalLogicType = MakeLogicType<
 export const textCardModalLogic = kea<textCardModalLogicType>([
     path(['scenes', 'dashboard', 'dashboardTextTileModal', 'logic']),
     props({} as TextCardModalProps),
-    key((props) => `textCardModalLogic-${props.dashboard.id}-${props.textTileId}`),
+    key(
+        (props) =>
+            `textCardModalLogic-${props.dashboard.id}-${props.textTileId}-${props.defaultTransparentBackground ? 'image' : 'text'}`
+    ),
     connect(() => ({ actions: [dashboardsModel, ['updateDashboard']] })),
     listeners(({ props, actions, values }) => ({
         submitTextTileFailure: (error) => {
@@ -131,7 +139,8 @@ export const textCardModalLogic = kea<textCardModalLogicType>([
                     return
                 }
 
-                lemonToast.error(`Could not save text: ${normalizedMessage}`)
+                const contentName = props.defaultTransparentBackground ? 'image' : 'text'
+                lemonToast.error(`Could not save ${contentName}: ${normalizedMessage}`)
             }
         },
         submitTextTileSuccess: ({ textTile }: { textTile: TextTileForm }) => {
@@ -140,17 +149,18 @@ export const textCardModalLogic = kea<textCardModalLogicType>([
 
             posthog.capture('dashboard text tile saved', {
                 dashboard_id: props.dashboard.id,
-                text_tile_id: props.textTileId === 'new' ? null : props.textTileId,
-                is_new: props.textTileId === 'new',
+                text_tile_id: props.textTileId,
+                is_new: props.textTileId === null,
                 body_length: textTile.body.length,
+                content_type: getImageOnlyTextCardImage(textCardConverter, textTile.body) ? 'image' : 'text',
             })
         },
     })),
     forms(({ props, actions }) => ({
         textTile: {
-            defaults: (props.textTileId && props.textTileId !== 'new'
+            defaults: (props.textTileId !== null
                 ? getExistingTextTile(props.dashboard, props.textTileId)
-                : { body: '', transparent_background: false }) as TextTileForm,
+                : { body: '', transparent_background: props.defaultTransparentBackground ?? false }) as TextTileForm,
             errors: ({ body }) => {
                 return {
                     body: !body.trim()
@@ -168,7 +178,7 @@ export const textCardModalLogic = kea<textCardModalLogicType>([
                     transparent_background: t.transparent_background,
                 }))
 
-                if (props.textTileId === 'new') {
+                if (props.textTileId === null) {
                     actions.updateDashboard({
                         id: props.dashboard.id,
                         tiles: [

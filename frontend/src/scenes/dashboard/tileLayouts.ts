@@ -6,11 +6,14 @@ import {
     type DashboardWidgetCatalogEntry,
 } from '@posthog/products-dashboards/frontend/widget_types/catalog'
 
+import { textCardConverter } from 'lib/components/Cards/TextCard/textCardMarkdown'
 import { BREAKPOINT_COLUMN_COUNTS } from 'scenes/dashboard/dashboardUtils'
 
 import { getQueryBasedInsightModel } from '~/queries/nodes/InsightViz/utils'
 import { isFunnelsQuery, isPathsQuery, isRetentionQuery, isTrendsQuery } from '~/queries/utils'
 import { ChartDisplayType, DashboardLayoutSize, DashboardTile, QueryBasedInsightModel } from '~/types'
+
+import { getImageOnlyTextCardImage } from 'products/dashboards/frontend/components/ImageTile/imageTileUtils'
 
 export interface TileLayout {
     x: number
@@ -19,10 +22,12 @@ export interface TileLayout {
     h: number
 }
 
-const MIN_TILE_HEIGHT_ROWS = 2
-const MIN_TEXT_TILE_HEIGHT_ROWS = 1
-const MIN_WIDGET_TILE_WIDTH_COLS = 3
-const MIN_WIDGET_TILE_HEIGHT_ROWS = 4
+const MIN_TILE_DIMENSIONS = {
+    default: { w: 2, h: 2 },
+    image: { w: 1, h: 2 },
+    text: { w: 1, h: 1 },
+    widget: { w: 3, h: 4 },
+} as const
 
 /** Fallback tile dimensions (half-width, standard height) when a tile has no known layout yet. */
 export const DEFAULT_INSERTED_TILE_SIZE = { w: 6, h: 5 } as const
@@ -32,7 +37,7 @@ type WidgetCatalogLayout = DashboardWidgetCatalogEntry['defaultLayout']
 /**
  * Widget tile sizing from `DASHBOARD_WIDGET_CATALOG[].defaultLayout` (w, h, minW, minH).
  * Returns undefined when `widget_type` is missing or unknown; callers use scene fallbacks
- * (default size 6×5, mins `MIN_WIDGET_TILE_WIDTH_COLS` / `MIN_WIDGET_TILE_HEIGHT_ROWS`).
+ * (default size 6×5, mins `MIN_TILE_DIMENSIONS.widget`).
  */
 function getWidgetCatalogLayout(widgetType: string | undefined): WidgetCatalogLayout | undefined {
     if (!widgetType || !(widgetType in DASHBOARD_WIDGET_CATALOG)) {
@@ -42,26 +47,33 @@ function getWidgetCatalogLayout(widgetType: string | undefined): WidgetCatalogLa
 }
 
 function getTileMinDimensions({
+    columnCount,
     isTextTile,
+    isImageTile,
     isButtonTile,
     isWidgetTile,
     widgetCatalogLayout,
 }: {
+    columnCount: number
     isTextTile: boolean
+    isImageTile: boolean
     isButtonTile: boolean
     isWidgetTile: boolean
     widgetCatalogLayout: WidgetCatalogLayout | undefined
 }): { minW: number; minH: number } {
+    if (isImageTile) {
+        return { minW: Math.min(MIN_TILE_DIMENSIONS.image.w, columnCount), minH: MIN_TILE_DIMENSIONS.image.h }
+    }
     if (isTextTile || isButtonTile) {
-        return { minW: 1, minH: MIN_TEXT_TILE_HEIGHT_ROWS }
+        return { minW: MIN_TILE_DIMENSIONS.text.w, minH: MIN_TILE_DIMENSIONS.text.h }
     }
     if (isWidgetTile) {
         return {
-            minW: widgetCatalogLayout?.minW ?? MIN_WIDGET_TILE_WIDTH_COLS,
-            minH: widgetCatalogLayout?.minH ?? MIN_WIDGET_TILE_HEIGHT_ROWS,
+            minW: widgetCatalogLayout?.minW ?? MIN_TILE_DIMENSIONS.widget.w,
+            minH: widgetCatalogLayout?.minH ?? MIN_TILE_DIMENSIONS.widget.h,
         }
     }
-    return { minW: 2, minH: MIN_TILE_HEIGHT_ROWS }
+    return { minW: MIN_TILE_DIMENSIONS.default.w, minH: MIN_TILE_DIMENSIONS.default.h }
 }
 
 export interface DuplicateLayoutResult {
@@ -218,6 +230,11 @@ export const calculateLayouts = (
     tiles: DashboardTile<QueryBasedInsightModel>[]
 ): Partial<Record<DashboardLayoutSize, Layout>> => {
     const allLayouts: Partial<Record<keyof typeof BREAKPOINT_COLUMN_COUNTS, Layout>> = {}
+    const imageTileIds = new Set(
+        tiles
+            .filter((tile) => !!tile.text && !!getImageOnlyTextCardImage(textCardConverter, tile.text.body))
+            .map((tile) => tile.id)
+    )
 
     // Always calculate sm layout first to establish reference order
     let referenceOrder: number[] | undefined = undefined
@@ -271,11 +288,12 @@ export const calculateLayouts = (
             const { x, y, w, h } = layout || {}
 
             const isTextTile = !!tile.text
+            const isImageTile = imageTileIds.has(tile.id)
             const isButtonTile = !!tile.button_tile
             const isWidgetTile = !!tile.widget
             const widgetCatalogLayout = isWidgetTile ? getWidgetCatalogLayout(tile.widget?.widget_type) : undefined
             if (isButtonTile) {
-                defaultW = 3
+                defaultW = 2
                 defaultH = 1
             } else if (isWidgetTile) {
                 defaultW = widgetCatalogLayout?.w ?? 6
@@ -285,18 +303,22 @@ export const calculateLayouts = (
             const realW = Math.min(w || defaultW, columnCount)
             const realH = h || (typeof xsSmH === 'number' && xsSmH > 0 ? xsSmH : undefined) || defaultH
             const { minW, minH } = getTileMinDimensions({
+                columnCount,
                 isTextTile,
+                isImageTile,
                 isButtonTile,
                 isWidgetTile,
                 widgetCatalogLayout,
             })
+            const constrainedW = isImageTile ? Math.max(realW, minW) : realW
+            const constrainedH = isImageTile ? Math.max(realH, minH) : realH
 
             return {
                 i: tile.id?.toString(),
-                x: x != null && Number.isInteger(x) && x + realW - 1 < columnCount ? x : 0,
+                x: x != null && Number.isInteger(x) && x + constrainedW - 1 < columnCount ? x : 0,
                 y: y != null && Number.isInteger(y) ? y : Infinity,
-                w: realW,
-                h: realH,
+                w: constrainedW,
+                h: constrainedH,
                 minW,
                 minH,
             }

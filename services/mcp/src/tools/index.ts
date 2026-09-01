@@ -5,6 +5,7 @@ import { filterStaffOnlyTools } from '@/lib/staff-only-tools'
 import getLLMCosts from './aiObservability/getLLMCosts'
 import parserRecipeCreate from './aiObservability/parserRecipeCreate'
 import parserRecipeReference from './aiObservability/parserRecipeReference'
+import { DASHBOARD_DEPRECATED_ALIASES } from './dashboards/deprecatedAliases'
 // Debug
 import debugMcpUiApps from './debug/debugMcpUiApps'
 // Experiments (hand-written — CRUD + lifecycle are codegen in generated/experiments.ts)
@@ -153,6 +154,7 @@ export const TOOL_MAP: Record<string, () => ToolBase<ZodObjectAny>> = {
 
     // Skills — deprecated llma-skill-* aliases forwarding to the renamed skill-* tools.
     ...SKILL_DEPRECATED_ALIASES,
+    ...DASHBOARD_DEPRECATED_ALIASES,
 }
 
 /** Build one tool by name, from the hand-written and generated registries alike. */

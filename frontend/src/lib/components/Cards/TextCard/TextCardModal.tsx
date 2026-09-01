@@ -21,16 +21,16 @@ export function TextCardModal({
     isOpen: boolean
     onClose: () => void
     dashboard: DashboardType<QueryBasedInsightModel>
-    textTileId: number | 'new' | null
+    textTileId: number | null
 }): JSX.Element {
-    const resolvedTileId = textTileId ?? 'new'
-    const modalLogicProps = { dashboard, textTileId: resolvedTileId, onClose }
+    const isNewTile = textTileId === null
+    const modalLogicProps = { dashboard, textTileId, onClose }
     const modalLogic = textCardModalLogic(modalLogicProps)
     // Form `body` + validation drive updates while typing; splitting useValues does not reduce rerenders.
     const { isTextTileSubmitting, textTileValidationErrors, textTile } = useValues(modalLogic)
     const { resetTextTile } = useActions(modalLogic)
     const [initialBody] = useState(() =>
-        resolvedTileId !== 'new' ? dashboard.tiles?.find((tile) => tile.id === resolvedTileId)?.text?.body || '' : ''
+        textTileId !== null ? dashboard.tiles?.find((tile) => tile.id === textTileId)?.text?.body || '' : ''
     )
     const shouldUseLegacyMarkdownEditor = !textCardConverter.isRoundTripSafe(initialBody)
     const hasUnsavedInput = (textTile?.body || '') !== initialBody
@@ -55,7 +55,7 @@ export function TextCardModal({
         >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-primary py-2 pl-4 pr-2">
                 <DialogPrimitiveTitle className="min-w-0 flex-1 text-base font-semibold">
-                    {resolvedTileId === 'new' ? 'Add text card' : 'Edit text card'}
+                    {isNewTile ? 'Add text card' : 'Edit text card'}
                 </DialogPrimitiveTitle>
                 <DialogClose className="shrink-0" />
             </div>
@@ -105,7 +105,7 @@ export function TextCardModal({
                         form="text-tile-form"
                         htmlType="submit"
                         type="primary"
-                        data-attr={resolvedTileId === 'new' ? 'save-new-text-tile' : 'edit-text-tile-text'}
+                        data-attr={isNewTile ? 'save-new-text-tile' : 'edit-text-tile-text'}
                     >
                         Save
                     </LemonButton>

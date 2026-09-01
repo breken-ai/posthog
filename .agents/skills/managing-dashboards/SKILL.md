@@ -89,8 +89,9 @@ Use this checklist as a design gate. Read the linked reference when an item appl
 4. Preserve old rows and old layouts. Treat existing layout JSON and template payloads as versioned input.
 5. Keep query work bounded. Do not turn dashboard load into unbounded tile queries or concurrent requests.
 6. Keep grid updates stable during drag, resize, and tile refresh. Avoid a full grid relayout for each tile result.
-7. Add observability when a change creates a new loading, query, cache, access, or refresh path.
-8. For list-only state, render controls only where that state applies.
+7. Add `DashboardTileCard__body` to each draggable tile body. This keeps grid drag handling and styles shared.
+8. Add observability when a change creates a new loading, query, cache, access, or refresh path.
+9. For list-only state, render controls only where that state applies.
 
 ## 5. Test the boundary, not only the happy path
 
@@ -123,6 +124,8 @@ Run the focused tests for each edited layer. Then run the relevant checks from [
 | Templates                                                               | `products/dashboards/backend/api/dashboard_templates.py`, `models/dashboard_templates.py`            |
 | Main scene, state, refresh, and layout persistence                      | `frontend/src/scenes/dashboard/Dashboard.tsx`, `dashboardLogic.tsx`, `DashboardItems.tsx`            |
 | Layout geometry and tile size constraints                               | `frontend/src/scenes/dashboard/tileLayouts.ts`, `dashboardUtils.ts`                                  |
+| Image tile rendering, editing, and Markdown parsing                     | `products/dashboards/frontend/components/ImageTile/`                                                 |
+| Dashboard frontend types                                                | `products/dashboards/frontend/types.ts`                                                              |
 | Shared and export rendering                                             | `frontend/src/exporter/scenes/ExporterDashboardScene.tsx`, `frontend/src/exporter/Exporter.tsx`      |
 | Refresh defaults and shared safety clamp                                | `posthog/hogql_queries/refresh_policy.py`                                                            |
 | Resource transfer                                                       | `posthog/models/resource_transfer/visitors/dashboard.py`, `dashboard_tile.py`, `dashboard_widget.py` |
