@@ -1457,6 +1457,10 @@ describe('ToolConfigSchema validation', () => {
             extra: { include_params: ['name'] },
         },
         {
+            name: 'rejects input_schema with exclude_params',
+            extra: { exclude_params: ['name'] },
+        },
+        {
             name: 'rejects input_schema with param_overrides',
             extra: { param_overrides: { name: { description: 'x' } } },
         },
