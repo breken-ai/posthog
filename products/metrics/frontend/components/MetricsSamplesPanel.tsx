@@ -1,7 +1,7 @@
 import { useActions, useValues } from 'kea'
 import { Fragment } from 'react'
 
-import { LemonTable, LemonTabs, Link, Tooltip } from '@posthog/lemon-ui'
+import { LemonSegmentedButton, LemonTable, LemonTabs, Link, Tooltip } from '@posthog/lemon-ui'
 
 import { getColorVar } from 'lib/colors'
 import { TZLabel } from 'lib/components/TZLabel'
@@ -169,6 +169,8 @@ function AggregatesTab(): JSX.Element {
 export function MetricsSamplesPanel(): JSX.Element {
     const { activeTab } = useValues(metricsSamplesLogic)
     const { setActiveTab } = useActions(metricsSamplesLogic)
+    const { viewerClauses, activeClauseIndex } = useValues(metricsViewerLogic)
+    const { setActiveClauseIndex } = useActions(metricsViewerLogic)
     const metricsViewerDisabledReason = getAccessControlDisabledReason(
         AccessControlResourceType.Metrics,
         AccessControlLevel.Viewer
@@ -176,6 +178,28 @@ export function MetricsSamplesPanel(): JSX.Element {
 
     return (
         <div className="border rounded p-2 overflow-y-auto">
+            {/* Samples and the anomaly badge describe one series at a time; with several
+                clauses this picks which one they follow. Aggregates always cover all series. */}
+            {viewerClauses.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2 pb-1">
+                    <span className="text-xs text-secondary">Samples follow series</span>
+                    <LemonSegmentedButton
+                        size="xsmall"
+                        value={activeClauseIndex}
+                        onChange={(index) => {
+                            if (!metricsViewerDisabledReason) {
+                                setActiveClauseIndex(index)
+                            }
+                        }}
+                        options={viewerClauses.map((clause, index) => ({
+                            value: index,
+                            label: clause.name,
+                            tooltip: clause.metricName.trim() || 'No metric picked',
+                        }))}
+                        data-attr="metrics-samples-panel-series-picker"
+                    />
+                </div>
+            )}
             <LemonTabs<MetricsPanelTab>
                 size="small"
                 activeKey={activeTab}
