@@ -1,29 +1,30 @@
 import { useActions, useValues } from 'kea'
 
 import { ObjectTags } from 'lib/components/ObjectTags/ObjectTags'
+import { useRestrictedArea, RestrictionScope } from 'lib/components/RestrictedArea'
+import { TeamMembershipLevel } from 'lib/constants'
 import { LemonSkeleton } from 'lib/lemon-ui/LemonSkeleton'
-import { getAccessControlDisabledReason } from 'lib/utils/accessControlUtils'
 import { projectLogic } from 'scenes/projectLogic'
 
 import { tagsModel } from '~/models/tagsModel'
-import { AccessControlLevel, AccessControlResourceType } from '~/types'
 
 export function ProjectTags(): JSX.Element {
     const { currentProject, currentProjectLoading } = useValues(projectLogic)
     const { updateCurrentProject } = useActions(projectLogic)
     const { tags: tagsAvailable } = useValues(tagsModel)
 
-    // Writing tags is a project write, so mirror the editor access the API itself requires.
-    const editDisabledReason = getAccessControlDisabledReason(
-        AccessControlResourceType.Project,
-        AccessControlLevel.Editor
-    )
+    // Projects carry no resource-level access controls, so tag writes are gated by project
+    // membership, which is exactly what the API's own permission check requires.
+    const restrictionReason = useRestrictedArea({
+        scope: RestrictionScope.Project,
+        minimumAccessLevel: TeamMembershipLevel.Member,
+    })
 
     if (!currentProject) {
         return <LemonSkeleton className="w-40 h-5" />
     }
 
-    if (editDisabledReason) {
+    if (restrictionReason) {
         return <ObjectTags tags={currentProject.tags ?? []} staticOnly data-attr="project-tags" />
     }
 
