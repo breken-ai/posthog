@@ -37,7 +37,7 @@ const makeDashboard = (body?: string): DashboardType<QueryBasedInsightModel> =>
     }) as DashboardType<QueryBasedInsightModel>
 
 const meta: Meta<typeof ImageTileModal> = {
-    title: 'Components/Cards/Image Tile Modal',
+    title: 'Dashboard/Tiles/Image Tile Modal',
     component: ImageTileModal,
     parameters: {
         layout: 'fullscreen',
