@@ -4,10 +4,7 @@ import { AccessControlLevel, DashboardType, QueryBasedInsightModel } from '~/typ
 
 import { ImageTileModal } from 'products/dashboards/frontend/components/ImageTile/ImageTileModal'
 
-const IMAGE_URL = `data:image/svg+xml,${encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 1200"><rect width="600" height="1200" fill="#c94c4c"/><circle cx="300" cy="330" r="130" fill="#f4c95d"/></svg>'
-)}`
-const HTML_IMAGE_URL = '/static/blank-dashboard-hog.png'
+const IMAGE_URL = 'https://imagedelivery.net/lvc9lblm6_VvsB0sE7lLrg/70-s-dance-hog/md'
 
 const makeDashboard = (body?: string): DashboardType<QueryBasedInsightModel> =>
     ({
@@ -65,7 +62,7 @@ export const ExistingImage: Story = {
 export const ExistingCover: Story = {
     args: {
         dashboard: makeDashboard(
-            `<img src="${HTML_IMAGE_URL}" alt="Cover" data-layout="cover" data-position-x="75" data-position-y="50" />`
+            `<img src="${IMAGE_URL}" alt="Cover" data-layout="cover" data-position-x="75" data-position-y="50" />`
         ),
         imageTileId: 1,
     },

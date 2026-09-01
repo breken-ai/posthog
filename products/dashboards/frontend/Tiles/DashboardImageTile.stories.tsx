@@ -4,9 +4,7 @@ import { DashboardPlacement, DashboardTile, InsightColor, QueryBasedInsightModel
 
 import { DashboardImageTile } from 'products/dashboards/frontend/components/ImageTile/DashboardImageTile'
 
-const IMAGE_URL = `data:image/svg+xml,${encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><rect width="1200" height="600" fill="#c94c4c"/><circle cx="600" cy="300" r="180" fill="#f4c95d"/></svg>'
-)}`
+const IMAGE_URL = 'https://imagedelivery.net/lvc9lblm6_VvsB0sE7lLrg/70-s-dance-hog/md'
 
 const transparentTile: DashboardTile<QueryBasedInsightModel> = {
     id: 1,
@@ -28,6 +26,11 @@ const meta: Meta<typeof DashboardImageTile> = {
     parameters: {
         layout: 'fullscreen',
     },
+    argTypes: {
+        image: {
+            control: 'object',
+        },
+    },
     args: {
         tile: transparentTile,
         image,
@@ -39,17 +42,7 @@ const meta: Meta<typeof DashboardImageTile> = {
 export default meta
 type Story = StoryObj<typeof DashboardImageTile>
 
-export const Contain: Story = {}
-
-export const Cover: Story = {
-    args: {
-        image: {
-            ...image,
-            layout: 'cover',
-            position: { x: 75, y: 50 },
-        },
-    },
-}
+export const Default: Story = {}
 
 export const OpaqueCard: Story = {
     args: {
