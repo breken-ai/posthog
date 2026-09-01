@@ -16,7 +16,7 @@ from posthog.models.integration import Integration
 from products.dashboards.backend.models.dashboard import Dashboard
 from products.exports.backend.models.exported_asset import ExportedAsset
 from products.exports.backend.models.subscription import Subscription
-from products.product_analytics.backend.models.insight import Insight
+from products.product_analytics.backend.facade.models import Insight
 
 from ee.tasks.subscriptions.slack_subscriptions import (
     _block_for_asset,
@@ -79,6 +79,9 @@ class TestSlackSubscriptionsTasks(APIBaseTest):
 
         assert first_call["channel"] == "C12345"
         assert first_call["text"] == "Your subscription to the Insight *My Test subscription* is ready! 🎉"
+        # Links in the report (explore hint, AI summary) must not auto-unfurl into preview cards.
+        assert first_call["unfurl_links"] is False
+        assert first_call["unfurl_media"] is False
         assert first_call["blocks"] == [
             {
                 "type": "section",
