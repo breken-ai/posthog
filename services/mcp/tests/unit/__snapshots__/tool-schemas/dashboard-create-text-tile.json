@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
         "body": {
-            "description": "Markdown body. A tile with exactly one image renders as an image tile; all other content renders as text.",
+            "description": "Markdown body. For image, provide exactly one Markdown image. For text, provide Markdown content that is not an image-only body.",
             "maxLength": 4000,
             "minLength": 1,
             "type": "string"

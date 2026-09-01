@@ -2277,7 +2277,7 @@
         }
     },
     "dashboard-create-tile": {
-        "description": "Add a dashboard tile from Markdown. Use Markdown headings, dividers, or notes for a text tile. The desktop grid is 12 columns wide. A typical text heading uses a thin full-width banner (e.g. `layouts.sm = {x: 0, y: 0, w: 12, h: 1}`). If `layouts` is omitted, the dashboard places the tile at the bottom with the default size. Use dashboard-reorder-tiles for precise placement. A body with exactly one Markdown image, such as `![Accessible description](https://example.com/image.png)`, renders as an image tile. The image URL must be reachable by dashboard viewers. Use `layouts` to control the tile size.",
+        "description": "Add a dashboard tile. Set `type` to text or image. Use Markdown headings, dividers, or notes for a text tile. The desktop grid is 12 columns wide. A typical text heading uses a thin full-width banner (e.g. `layouts.sm = {x: 0, y: 0, w: 12, h: 1}`). If `layouts` is omitted, the dashboard places the tile at the bottom with the default size. Use dashboard-reorder-tiles for precise placement. An image tile body must contain exactly one Markdown image, such as `![Accessible description](https://example.com/image.png)`. The image URL must be reachable by dashboard viewers. Use `layouts` to control the tile size.",
         "category": "Dashboards",
         "feature": "dashboards",
         "summary": "Create dashboard tile",

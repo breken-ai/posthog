@@ -20,12 +20,15 @@ const DashboardTileLayoutSchema = z.object({
 
 export const DashboardTileCreateSchema = z.object({
     id: z.number().int().positive().describe('Dashboard ID. Use dashboard-get or dashboards-get-all to find it.'),
+    type: z
+        .enum(['text', 'image'])
+        .describe('Tile type. Use text for Markdown content. Use image for a body with exactly one Markdown image.'),
     body: z
         .string()
         .min(1)
         .max(4000)
         .describe(
-            'Markdown body. A tile with exactly one image renders as an image tile; all other content renders as text.'
+            'Markdown body. For image, provide exactly one Markdown image. For text, provide Markdown content that is not an image-only body.'
         ),
     layouts: z
         .object({

@@ -1151,10 +1151,6 @@ export const productUrls = {
     dashboard: (id: string | number, highlightInsightId?: string): string =>
         combineUrl(`/dashboard/${id}`, highlightInsightId ? { highlightInsightId } : {}).url,
     dashboardTile: (id: string | number, tileId: string | number): string => `${urls.dashboard(id)}/tiles/${tileId}`,
-    dashboardTextTile: (id: string | number, textTileId: string | number): string =>
-        `${urls.dashboard(id)}/text-tiles/${textTileId}`,
-    dashboardButtonTile: (id: string | number, buttonTileId: string | number): string =>
-        `${urls.dashboard(id)}/button-tiles/${buttonTileId}`,
     dashboardSharing: (id: string | number): string => `/dashboard/${id}/sharing`,
     dashboardSubscriptions: (id: string | number): string => `/dashboard/${id}/subscriptions`,
     dashboardSubscription: (id: string | number, subscriptionId: string): string =>

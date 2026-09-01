@@ -158,7 +158,7 @@ const dashboardCreateTile = (): ToolBase<typeof DashboardCreateTileSchema, Schem
     handler: async (context: Context, params: z.infer<typeof DashboardCreateTileSchema>) => {
         const projectId = await context.stateManager.getProjectId()
         const parsedParams = DashboardCreateTileSchema.parse(params)
-        const { id, ...body } = parsedParams
+        const { id, type: _type, ...body } = parsedParams
         const result = await context.api.request<Schemas.DashboardTile>({
             method: 'POST',
             path: `/api/projects/${encodeURIComponent(String(projectId))}/dashboards/${encodeURIComponent(String(id))}/create_text_tile/`,
