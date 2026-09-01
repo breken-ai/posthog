@@ -46,38 +46,63 @@ def _tool_call(call_id: str, command: str) -> list[str]:
 
 ANALYSIS_QUERY_TOOLS = frozenset({"query-trends", "query-funnel", "query-retention", "execute-sql"})
 
+_DISCOVERY_SQL = "SELECT column_name FROM system.information_schema.columns WHERE table_name = 'events'"
+_ANSWER_SQL = "SELECT count() FROM events WHERE event = 'logged_in'"
 
-def test_first_relevant_tool_passes_when_sql_validates_a_typed_query() -> None:
-    raw_log = "\n".join(
-        [
-            *_tool_call("retention", "call query-retention {}"),
-            *_tool_call("sql", "call execute-sql {}"),
-        ]
-    )
+
+def _sql_command(query: str) -> str:
+    payload = json.dumps({"query": query})
+    return f"call execute-sql {payload}"
+
+
+@parameterized.expand(
+    [
+        (
+            "typed_query_first_then_sql",
+            ["call query-retention {}", _sql_command(_ANSWER_SQL)],
+            "query-retention",
+            1.0,
+            "query-retention",
+        ),
+        (
+            "sql_answer_before_the_typed_query",
+            [_sql_command(_ANSWER_SQL), "call query-retention {}"],
+            "query-retention",
+            0.0,
+            "execute-sql",
+        ),
+        (
+            "mandated_catalog_lookup_before_the_typed_query",
+            [_sql_command(_DISCOVERY_SQL), "call query-retention {}"],
+            "query-retention",
+            1.0,
+            "query-retention",
+        ),
+        (
+            "sql_control_that_only_looked_up_the_catalog",
+            [_sql_command(_DISCOVERY_SQL)],
+            "execute-sql",
+            0.0,
+            None,
+        ),
+    ]
+)
+def test_first_relevant_tool_grades_the_answer_route(
+    _name: str,
+    commands: list[str],
+    target: str,
+    expected_score: float,
+    expected_first_tool: str | None,
+) -> None:
+    raw_log = "\n".join(line for index, command in enumerate(commands) for line in _tool_call(f"call-{index}", command))
 
     result = FirstRelevantTool(relevant_tools=ANALYSIS_QUERY_TOOLS)._run_eval_sync(
         {"raw_log": raw_log},
-        expected={"first_relevant_tool": {"tool": "query-retention"}},
+        expected={"first_relevant_tool": {"tool": target}},
     )
 
-    assert result.score == 1.0
-    assert result.metadata["first_relevant_tool"] == "query-retention"
-
-
-def test_first_relevant_tool_fails_when_sql_is_selected_before_the_typed_query() -> None:
-    raw_log = "\n".join(
-        [
-            *_tool_call("sql", "call execute-sql {}"),
-            *_tool_call("retention", "call query-retention {}"),
-        ]
-    )
-
-    result = FirstRelevantTool(relevant_tools=ANALYSIS_QUERY_TOOLS)._run_eval_sync(
-        {"raw_log": raw_log},
-        expected={"first_relevant_tool": {"tool": "query-retention"}},
-    )
-
-    assert result.score == 0.0
+    assert result.score == expected_score
+    assert result.metadata.get("first_relevant_tool") == expected_first_tool
 
 
 @parameterized.expand(

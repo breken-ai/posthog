@@ -36,7 +36,13 @@ from __future__ import annotations
 
 import re
 
-from products.posthog_ai.eval_harness.log_parser import EXEC_TOOL_NAME, INFO_SYNTHETIC_PREFIX, LogParser, ToolCall
+from products.posthog_ai.eval_harness.log_parser import (
+    EXEC_TOOL_NAME,
+    INFO_SYNTHETIC_PREFIX,
+    LogParser,
+    ToolCall,
+    is_schema_discovery_call,
+)
 from products.posthog_ai.eval_harness.scorers.contract import Score, Scorer
 
 __all__ = [
@@ -207,7 +213,13 @@ class DidNotCiteRawSqlAfterTypedQuery(Scorer):
 
 
 class FirstRelevantTool(Scorer):
-    """Binary: did the first successful call among ``relevant_tools`` match the target?"""
+    """Binary: did the first successful call among ``relevant_tools`` match the target?
+
+    ``execute-sql`` calls against ``system.information_schema.*`` are skipped:
+    the MCP instructions require that catalog lookup before an answer query, so
+    counting it as the route would score the mandated discovery step rather
+    than the tool the agent picked to answer with.
+    """
 
     def __init__(self, *, relevant_tools: frozenset[str]) -> None:
         self.relevant_tools = relevant_tools
@@ -224,12 +236,20 @@ class FirstRelevantTool(Scorer):
         if parser is None:
             return Score(name=self._name(), score=0.0, metadata={"reason": "No raw log", "tool": target})
 
-        relevant = [call for call in parser.get_tool_calls() if not call.is_error and call.name in self.relevant_tools]
+        candidates = [
+            call for call in parser.get_tool_calls() if not call.is_error and call.name in self.relevant_tools
+        ]
+        relevant = [call for call in candidates if not is_schema_discovery_call(call)]
+        skipped_discovery = len(candidates) - len(relevant)
         if not relevant:
             return Score(
                 name=self._name(),
                 score=0.0,
-                metadata={"reason": "No successful relevant tool calls", "tool": target},
+                metadata={
+                    "reason": "No successful relevant tool calls",
+                    "tool": target,
+                    "skipped_discovery_calls": skipped_discovery,
+                },
             )
 
         first = min(relevant, key=lambda call: call.position)
@@ -237,7 +257,12 @@ class FirstRelevantTool(Scorer):
         return Score(
             name=self._name(),
             score=score,
-            metadata={"expected_tool": target, "first_relevant_tool": first.name, "call_id": first.call_id},
+            metadata={
+                "expected_tool": target,
+                "first_relevant_tool": first.name,
+                "call_id": first.call_id,
+                "skipped_discovery_calls": skipped_discovery,
+            },
         )
 
 
