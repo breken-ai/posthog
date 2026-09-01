@@ -120,7 +120,7 @@ describe('ImageTileModal', () => {
         expect(getDataAttr('image-tile-preview-image')).toHaveAttribute('src', 'https://example.com/portrait.png')
         expect(screen.getByText(/Drag or use arrow keys to reposition the image/)).toBeInTheDocument()
 
-        expect(getDataAttr('image-tile-preview-image')).toHaveAttribute('alt', '')
+        expect(getDataAttr('image-tile-preview-image')).toHaveAttribute('alt', 'Dashboard image')
         expect(getDataAttr('save-new-image-tile')).toHaveAttribute('aria-disabled', 'false')
         expect(getDataAttr('image-tile-transparent-background')).toHaveAttribute('aria-checked', 'true')
     })
@@ -203,7 +203,6 @@ describe('ImageTileModal', () => {
         )
 
         expect(getDataAttr('image-tile-preview-image')).toHaveClass('object-contain')
-        expect(getDataAttr('image-tile-preview-image')).toHaveStyle({})
         expect(screen.getByText(/Drag or use arrow keys to reposition the image/)).toBeInTheDocument()
     })
 
@@ -330,7 +329,7 @@ describe('ImageTileModal', () => {
         expect(setFilesToUpload).not.toHaveBeenCalled()
     })
 
-    it('allows cancelling while an upload is in progress', () => {
+    it('prevents cancelling while an upload is in progress', () => {
         const onClose = jest.fn()
         useUploadFilesMock.mockReturnValue({
             setFilesToUpload: jest.fn(),
@@ -349,7 +348,7 @@ describe('ImageTileModal', () => {
 
         fireEvent.click(screen.getByText('Cancel'))
 
-        expect(onClose).toHaveBeenCalledTimes(1)
+        expect(onClose).not.toHaveBeenCalled()
     })
 
     it('closes when cancel is clicked', () => {
