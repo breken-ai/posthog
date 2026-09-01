@@ -4359,7 +4359,7 @@ class TasksTeamConfigResponseSerializer(serializers.Serializer):
     """Team-level tasks configuration."""
 
     ai_run_preferences = TasksAIRunPreferencesSerializer(
-        help_text="Project-wide default AI run triple; empty object when unset."
+        help_text="Project-wide default AI run triple; all fields null when unset."
     )
 
 
@@ -4368,7 +4368,7 @@ class TasksUserConfigResponseSerializer(serializers.Serializer):
     """The requesting user's per-project tasks configuration."""
 
     ai_run_preferences = TasksAIRunPreferencesSerializer(
-        help_text="The requesting user's per-project default AI run triple; empty object when unset."
+        help_text="The requesting user's per-project default AI run triple; all fields null when unset."
     )
     resolved_ai_run_defaults = TasksResolvedAIRunDefaultsSerializer(
         help_text="The defaults a new run will use when no explicit runtime selection is sent."
