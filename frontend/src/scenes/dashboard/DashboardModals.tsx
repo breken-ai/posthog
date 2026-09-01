@@ -1,5 +1,6 @@
 import { useActions, useValues } from 'kea'
 import { router } from 'kea-router'
+import { useEffect } from 'react'
 
 import { AddWidgetModal } from '@posthog/products-dashboards/frontend/widgets/AddWidgetModal'
 
@@ -54,6 +55,13 @@ export function DashboardModals({ dashboard }: { dashboard: DashboardType<QueryB
     const isCreatingButtonTile = buttonTileId === null
     const selectedImageTileId = textRouteHasImage ? (textRouteTile?.id ?? null) : null
     const shouldShowImageTileModal = showImageTileModal || selectedImageTileId !== null
+    const hasMissingRouteTile = (textTileId !== null && !textRouteTile) || (buttonTileId !== null && !buttonRouteTile)
+
+    useEffect(() => {
+        if (hasMissingRouteTile) {
+            push(urls.dashboard(dashboard.id))
+        }
+    }, [dashboard.id, hasMissingRouteTile, push])
 
     return (
         <>
