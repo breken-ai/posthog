@@ -264,41 +264,17 @@ const ErrorTrackingIssuesAssignPartialUpdateSchema = ErrorTrackingIssuesAssignPa
 
 const errorTrackingIssuesAssignPartialUpdate = (): ToolBase<
     typeof ErrorTrackingIssuesAssignPartialUpdateSchema,
-    unknown
+    Schemas.ErrorTrackingIssueAssignResponse
 > => ({
     name: 'error-tracking-issues-assign-partial-update',
     schema: ErrorTrackingIssuesAssignPartialUpdateSchema,
     handler: async (context: Context, params: z.infer<typeof ErrorTrackingIssuesAssignPartialUpdateSchema>) => {
         const projectId = await context.stateManager.getProjectId()
         const body: Record<string, unknown> = {}
-        if (params.id !== undefined) {
-            body['id'] = params.id
-        }
-        if (params.status !== undefined) {
-            body['status'] = params.status
-        }
-        if (params.severity !== undefined) {
-            body['severity'] = params.severity
-        }
-        if (params.name !== undefined) {
-            body['name'] = params.name
-        }
-        if (params.description !== undefined) {
-            body['description'] = params.description
-        }
-        if (params.first_seen !== undefined) {
-            body['first_seen'] = params.first_seen
-        }
         if (params.assignee !== undefined) {
             body['assignee'] = params.assignee
         }
-        if (params.external_issues !== undefined) {
-            body['external_issues'] = params.external_issues
-        }
-        if (params.cohort !== undefined) {
-            body['cohort'] = params.cohort
-        }
-        const result = await context.api.request<unknown>({
+        const result = await context.api.request<Schemas.ErrorTrackingIssueAssignResponse>({
             method: 'PATCH',
             path: `/api/projects/${encodeURIComponent(String(projectId))}/error_tracking/issues/${encodeURIComponent(String(params.id))}/assign/`,
             body,
