@@ -96,7 +96,7 @@ function DashboardImageTileInternal(
                         >
                             <img
                                 src={image.src}
-                                alt={image.alt || 'Dashboard image'}
+                                alt={image.alt}
                                 draggable={false}
                                 className={clsx(
                                     'h-full w-full',
@@ -120,7 +120,7 @@ function DashboardImageTileInternal(
                 width="90vw"
                 maxWidth={1400}
             >
-                <img src={image.src} alt={image.alt || 'Image preview'} className="h-[80vh] w-full object-contain" />
+                <img src={image.src} alt={image.alt} className="h-[80vh] w-full object-contain" />
             </LemonModal>
         </>
     )
