@@ -429,6 +429,7 @@ const workflowsStats = (): ToolBase<typeof WorkflowsStatsSchema, Schemas.AppMetr
                 interval: params.interval,
                 kind: params.kind,
                 name: params.name,
+                version: params.version,
             },
         })
         return result
