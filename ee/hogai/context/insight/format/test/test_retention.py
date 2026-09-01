@@ -1,3 +1,5 @@
+from typing import Any
+
 from posthog.test.base import BaseTest
 
 from posthog.schema import AssistantRetentionEventsNode, AssistantRetentionFilter, AssistantRetentionQuery
@@ -85,7 +87,7 @@ class TestRetentionResultsFormatter(BaseTest):
         )
 
     def test_format_retention_ignores_empty_future_cohort(self):
-        results = [
+        results: list[dict[str, Any]] = [
             {
                 "date": "2025-01-21T00:00:00-08:00",
                 "label": "Day 0",
