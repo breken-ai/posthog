@@ -446,25 +446,6 @@ export function ImageTileModal({
                     {image && (
                         <>
                             <div className="flex flex-col gap-1">
-                                <LemonLabel htmlFor="image-tile-alt">Alt text</LemonLabel>
-                                <LemonInput
-                                    id="image-tile-alt"
-                                    value={image.alt}
-                                    onChange={(alt) => updateImageBody({ ...image, alt })}
-                                    disabledReason={
-                                        imageOperationInProgress
-                                            ? 'Wait for the current image operation to finish'
-                                            : null
-                                    }
-                                    fullWidth
-                                    data-attr="image-tile-alt"
-                                />
-                                <span className="text-xs text-secondary">
-                                    Used by screen readers. This text does not display on the image. Leave blank for a
-                                    decorative image.
-                                </span>
-                            </div>
-                            <div className="flex flex-col gap-1">
                                 <LemonLabel htmlFor="image-tile-layout">Image display</LemonLabel>
                                 <LemonSelect<ImageTileImage['layout']>
                                     id="image-tile-layout"
@@ -495,6 +476,25 @@ export function ImageTileModal({
                                     />
                                 )}
                             </Field>
+                            <div className="flex flex-col gap-1">
+                                <LemonLabel htmlFor="image-tile-alt">Alt text</LemonLabel>
+                                <LemonInput
+                                    id="image-tile-alt"
+                                    value={image.alt}
+                                    onChange={(alt) => updateImageBody({ ...image, alt })}
+                                    disabledReason={
+                                        imageOperationInProgress
+                                            ? 'Wait for the current image operation to finish'
+                                            : null
+                                    }
+                                    fullWidth
+                                    data-attr="image-tile-alt"
+                                />
+                                <span className="text-xs text-secondary">
+                                    Used by screen readers. This text does not display on the image. Leave blank for a
+                                    decorative image.
+                                </span>
+                            </div>
                         </>
                     )}
                     <div className="hidden">
