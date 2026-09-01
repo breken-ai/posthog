@@ -6,7 +6,7 @@ import posthog from 'posthog-js'
 import { lemonToast } from '@posthog/lemon-ui'
 
 import { dashboardsModel } from '~/models/dashboardsModel'
-import { DashboardType, QueryBasedInsightModel } from '~/types'
+import { DashboardTileId, DashboardType, QueryBasedInsightModel } from '~/types'
 
 export interface ButtonTileForm {
     url: string
@@ -18,13 +18,13 @@ export interface ButtonTileForm {
 
 export interface ButtonTileCardModalProps {
     dashboard: DashboardType<QueryBasedInsightModel>
-    buttonTileId: number | null
+    buttonTileId: DashboardTileId | null
     onClose: () => void
 }
 
 const getExistingButtonTile = (
     dashboard: DashboardType<QueryBasedInsightModel>,
-    buttonTileId: number
+    buttonTileId: DashboardTileId
 ): ButtonTileForm => {
     const tile = dashboard.tiles?.find((t) => t.id === buttonTileId)
     if (tile?.button_tile) {

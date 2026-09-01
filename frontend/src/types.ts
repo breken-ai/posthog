@@ -2558,8 +2558,10 @@ export interface Tileable {
     color: InsightColor | null
 }
 
+export type DashboardTileId = number
+
 export interface DashboardTile<T = InsightModel> extends Tileable {
-    id: number
+    id: DashboardTileId
     insight?: T
     text?: TextModel
     button_tile?: ButtonTileModel
@@ -2592,7 +2594,7 @@ export interface DashboardWidgetModel {
 }
 
 export interface DashboardTileBasicType {
-    id: number
+    id: DashboardTileId
     dashboard_id: number
     deleted?: boolean
 }

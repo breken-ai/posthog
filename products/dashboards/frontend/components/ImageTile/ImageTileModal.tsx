@@ -20,7 +20,7 @@ import { LemonSwitch } from 'lib/lemon-ui/LemonSwitch'
 import { lemonToast } from 'lib/lemon-ui/LemonToast'
 import { preflightLogic } from 'lib/logic/preflightLogic'
 
-import { DashboardType, QueryBasedInsightModel } from '~/types'
+import { DashboardTileId, DashboardType, QueryBasedInsightModel } from '~/types'
 
 import {
     DEFAULT_IMAGE_TILE_POSITION,
@@ -28,7 +28,7 @@ import {
     imageTileToMarkdown,
     imageTilePositionToCss,
 } from './imageTileUtils'
-import type { ImageTileId, ImageTileImage, ImageTilePosition } from './imageTileUtils'
+import type { ImageTileImage, ImageTilePosition } from './imageTileUtils'
 
 const IMAGE_TILE_LAYOUT_OPTIONS = [
     { value: 'contain', label: 'Show full image' },
@@ -63,7 +63,7 @@ export function ImageTileModal({
     isOpen: boolean
     onClose: () => void
     dashboard: DashboardType<QueryBasedInsightModel>
-    imageTileId: ImageTileId
+    imageTileId: DashboardTileId | null
 }): JSX.Element {
     const isNewTile = imageTileId === null
     const modalLogicProps = {

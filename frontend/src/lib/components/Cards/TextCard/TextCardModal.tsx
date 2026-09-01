@@ -10,7 +10,7 @@ import { LemonSwitch } from 'lib/lemon-ui/LemonSwitch'
 import { DialogClose, DialogPrimitive, DialogPrimitiveTitle } from 'lib/ui/DialogPrimitive/DialogPrimitive'
 import { cn } from 'lib/utils/css-classes'
 
-import { DashboardType, QueryBasedInsightModel } from '~/types'
+import { DashboardTileId, DashboardType, QueryBasedInsightModel } from '~/types'
 
 export function TextCardModal({
     isOpen,
@@ -21,7 +21,7 @@ export function TextCardModal({
     isOpen: boolean
     onClose: () => void
     dashboard: DashboardType<QueryBasedInsightModel>
-    textTileId: number | null
+    textTileId: DashboardTileId | null
 }): JSX.Element {
     const isNewTile = textTileId === null
     const modalLogicProps = { dashboard, textTileId, onClose }

@@ -103,6 +103,7 @@ import {
     DashboardTemplateEditorType,
     DashboardTile,
     DashboardTileBasicType,
+    DashboardTileId,
     DashboardTileSpacing,
     DashboardType,
     DashboardWidgetType,
@@ -212,7 +213,7 @@ export interface PendingInsertion {
     w: number | null
 }
 
-function parseDashboardTileId(tileId: string | undefined): number | null {
+function parseDashboardTileId(tileId: string | undefined): DashboardTileId | null {
     const parsedTileId = Number(tileId)
     return Number.isNaN(parsedTileId) ? null : parsedTileId
 }
@@ -280,7 +281,7 @@ export interface dashboardLogicValues {
     blockRefresh: boolean
     breadcrumbs: Breadcrumb[]
     breakdownValuesIncomplete: boolean
-    buttonTileId: number | null
+    buttonTileId: DashboardTileId | null
     canAutoPreview: boolean
     canEditDashboard: boolean
     canRestrictDashboard: boolean
@@ -375,7 +376,7 @@ export interface dashboardLogicValues {
         themeId: number | null
     } | null
     terraformModalOpen: boolean
-    textTileId: number | null
+    textTileId: DashboardTileId | null
     textTiles: DashboardTile<QueryBasedInsightModel<Node<Record<string, any>>>>[]
     tiles: DashboardTile<QueryBasedInsightModel<Node<Record<string, any>>>>[]
     urlFilters: DashboardFilter
@@ -747,8 +748,8 @@ export interface dashboardLogicActions {
     setBreakdownFilter: (breakdown_filter: BreakdownFilter | null) => {
         breakdown_filter: BreakdownFilter | null
     }
-    setButtonTileId: (buttonTileId: number | null) => {
-        buttonTileId: number | null
+    setButtonTileId: (buttonTileId: DashboardTileId | null) => {
+        buttonTileId: DashboardTileId | null
     }
     setDashboardCustomizeMenuOpen: (open: boolean) => {
         open: boolean
@@ -875,8 +876,8 @@ export interface dashboardLogicActions {
     setTerraformModalOpen: (open: boolean) => {
         open: boolean
     }
-    setTextTileId: (textTileId: number | null) => {
-        textTileId: number | null
+    setTextTileId: (textTileId: DashboardTileId | null) => {
+        textTileId: DashboardTileId | null
     }
     setTileOverride: (tile: DashboardTile<QueryBasedInsightModel>) => {
         tile: DashboardTile<QueryBasedInsightModel<Node<Record<string, any>>>>
@@ -1422,8 +1423,8 @@ export const dashboardLogic = kea<dashboardLogicType>([
             toDashboard,
             toDashboardName,
         }),
-        setTextTileId: (textTileId: number | null) => ({ textTileId }),
-        setButtonTileId: (buttonTileId: number | null) => ({ buttonTileId }),
+        setTextTileId: (textTileId: DashboardTileId | null) => ({ textTileId }),
+        setButtonTileId: (buttonTileId: DashboardTileId | null) => ({ buttonTileId }),
         openAddInsightModal: true,
         openTextTileModal: true,
         openImageTileModal: true,
@@ -2321,7 +2322,7 @@ export const dashboardLogic = kea<dashboardLogicType>([
             },
         ],
         textTileId: [
-            null as number | null,
+            null as DashboardTileId | null,
             {
                 setTextTileId: (_, { textTileId }) => textTileId,
                 openTextTileModal: () => null,
@@ -2336,7 +2337,7 @@ export const dashboardLogic = kea<dashboardLogicType>([
             },
         ],
         buttonTileId: [
-            null as number | null,
+            null as DashboardTileId | null,
             {
                 setButtonTileId: (_, { buttonTileId }) => buttonTileId,
                 openButtonTileModal: () => null,
