@@ -28,6 +28,8 @@ unrelated cases don't drag the rollup down.
   preceded by ``info <tool>`` in the same run?
 * ``VerifiedEventBeforeQuery`` — did the agent run ``read-data-schema``
   before any successful ``query-*`` call?
+* ``DidNotCiteRawSqlAfterTypedQuery`` — after a typed query tool succeeded,
+  did the final answer avoid hand-writing the equivalent raw SQL?
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ from products.posthog_ai.eval_harness.scorers.contract import Score, Scorer
 
 __all__ = [
     "CalledTargetTool",
+    "DidNotCiteRawSqlAfterTypedQuery",
     "DidNotRenderUi",
     "DrilledIntoSchema",
     "ExecBeforeRender",
@@ -59,6 +62,11 @@ __all__ = [
 # punctuation, etc. The backslash exclusion matters: tool results arrive JSON-escaped, so without it
 # the capture keeps a trailing `\` and never substring-matches the (unescaped) final message.
 _URL_RE = re.compile(r"https?://[^\s\"'`)\]<>\\]+")
+
+# Matches a `<hogql>` citation tag or a fenced ```sql block — the two shapes an
+# agent uses to hand-write a raw query in its final answer instead of trusting
+# a typed query tool's own structured result.
+_RAW_SQL_CITATION_RE = re.compile(r"<hogql\b|```sql\b", re.IGNORECASE)
 
 RENDER_UI_TOOL_NAME = "render-ui"
 """Normalized name of the umbrella render tool (``mcp__<server>__render-ui`` → ``render-ui``).
@@ -141,6 +149,61 @@ class CalledTargetTool(Scorer):
             score=0.0,
             metadata={"reason": f"Tool '{target}' was never successfully called", "tool": target},
         )
+
+
+class DidNotCiteRawSqlAfterTypedQuery(Scorer):
+    """Binary: after a typed query tool succeeded, did the answer avoid raw SQL?
+
+    ``expected = {"did_not_cite_raw_sql_after_typed_query": {"tool": "query-trends"}}``
+
+    A typed query tool (``query-trends`` and friends) already returns a
+    structured, renderable result — there is no reason for the final answer
+    to also hand-write the equivalent SQL. Doing so anyway reads as a routing
+    win under ``CalledTargetTool`` while the underlying reasoning is still
+    SQL-first; this scorer catches that gap.
+
+    Looks for a ``<hogql`` citation tag or a fenced ```sql block in the final
+    assistant message. Score 1.0 if the tool succeeded and neither appears,
+    0.0 if either appears. ``None`` if ``tool`` was never called successfully
+    (that gap is caught by ``CalledTargetTool``).
+    """
+
+    def _name(self) -> str:
+        return "did_not_cite_raw_sql_after_typed_query"
+
+    def _run_eval_sync(self, output: dict | None, expected: dict | None = None, **kwargs) -> Score:
+        target = _read_tool(expected, self._name())
+        if not target:
+            return Score(name=self._name(), score=None, metadata={"reason": f"No {self._name()}.tool on case"})
+
+        parser = _build_parser(output)
+        if parser is None:
+            return Score(name=self._name(), score=None, metadata={"reason": "No raw log"})
+
+        called = any(not call.is_error for call in parser.get_tool_calls(target))
+        if not called:
+            return Score(
+                name=self._name(),
+                score=None,
+                metadata={"reason": f"Tool '{target}' was never successfully called", "tool": target},
+            )
+
+        last_message = (output or {}).get("last_message") or ""
+        if not isinstance(last_message, str):
+            last_message = str(last_message)
+
+        match = _RAW_SQL_CITATION_RE.search(last_message)
+        if match:
+            return Score(
+                name=self._name(),
+                score=0.0,
+                metadata={
+                    "reason": "Final answer cited raw SQL after a typed query tool already succeeded",
+                    "tool": target,
+                    "matched": match.group(0),
+                },
+            )
+        return Score(name=self._name(), score=1.0, metadata={"tool": target})
 
 
 class FirstRelevantTool(Scorer):
