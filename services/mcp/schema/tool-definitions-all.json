@@ -6061,6 +6061,20 @@
             "readOnlyHint": true
         }
     },
+    "integrations-users-retrieve": {
+        "description": "List the Slack workspace members a Slack integration can send direct messages to. Slack-only — non-Slack integration ids return an error (400 if the integration is otherwise visible, 404 if it isn't). Returns each member's id (e.g. U0123ABC), name (handle without the leading @), and display_name; bots, deactivated accounts, and Slackbot are excluded. Supports `search` (fuzzy match on display name and handle, plus id-contains), `limit`, `offset`, and a `user_id` query parameter for a direct lookup. Results are cached for 1 hour (no force-refresh exposed via MCP). Use this to find member ids when configuring a scout's Slack DM destination — pass them as `output_destinations.slack.users` entries (`member_id|@display-name`) via scout-config-update or scout-create. Requires the Slack integration's id; use integrations-list (filter by kind=slack) to find it.",
+        "category": "Integrations",
+        "feature": "integrations",
+        "summary": "List integration Slack members",
+        "title": "List integration Slack members",
+        "required_scopes": ["integration:read"],
+        "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true,
+            "readOnlyHint": true
+        }
+    },
     "llma-clustering-config-get": {
         "description": "Retrieve the team's clustering event-filter configuration for automated AI observability clustering. New scheduled clustering should usually use clustering jobs, but this remains useful when auditing existing automation.",
         "category": "AI observability",
