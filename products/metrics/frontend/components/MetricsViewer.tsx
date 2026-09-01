@@ -57,7 +57,6 @@ const DISPLAY_TYPE_OPTIONS: { value: MetricsDisplayType; label: string }[] = [
     { value: 'bar', label: 'Bar' },
 ]
 
-
 // Mirrors the curated set used by `LogsViewer/Filters/DateRangeFilter`.
 const DATE_OPTIONS: DateMappingOption[] = [
     { key: CUSTOM_OPTION_KEY, values: [] },
