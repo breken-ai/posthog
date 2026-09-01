@@ -63,6 +63,7 @@ export function getAddTileMenuItems({
         },
         {
             label: 'Image',
+            tag: 'new' as const,
             onClick: withBeforeSelect(onAddImage),
             'data-attr': 'dashboard-add-image-tile',
         },
