@@ -4,7 +4,7 @@ from typing import Any, Optional, cast
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Model
+from django.db.models import Model, Prefetch, QuerySet
 from django.db.models.functions import Trim
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -21,6 +21,7 @@ from posthog.schema import ProductKey
 
 from posthog.api.routing import TeamAndOrgViewSetMixin
 from posthog.api.shared import ProjectBackwardCompatBasicSerializer
+from posthog.api.tagged_item import TaggedItemSerializerMixin
 
 # These are imported from team.py for now. They are part of the legacy /api/environments/ surface and are
 # expected to move project-side (or to a neutral module) in a later PR once /api/environments/ is retired —
@@ -78,6 +79,8 @@ from posthog.models.product_intent.product_intent import (
     enqueue_product_activation_calc_debounced,
 )
 from posthog.models.project import Project
+from posthog.models.tag import tagify
+from posthog.models.tagged_item import TaggedItem
 from posthog.models.team.event_retention import should_enforce_events_retention
 from posthog.models.team.extensions import get_or_create_team_extension
 from posthog.models.team.setup_tasks import SetupTaskId
@@ -522,6 +525,75 @@ def team_evaluation_context_suggestions_view(team: Team, request: request.Reques
     return response.Response({"success": True, "name": context_name, "hidden_from_suggestions": hidden})
 
 
+PROJECT_TAGS_HELP_TEXT = (
+    "Labels applied to this project. Names are trimmed and lowercased, and sending this field "
+    "replaces the project's existing tags."
+)
+
+TAGS_MATCH_MODES = ("all", "any")
+
+
+def project_tags_field() -> serializers.ListField:
+    """The writable `tags` field shared by the project detail and list serializers."""
+    return serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        required=False,
+        help_text=PROJECT_TAGS_HELP_TEXT,
+    )
+
+
+def current_project_tag_names(project: Project) -> set[str]:
+    """The project's tag names, preferring the prefetch the viewset attaches."""
+    if hasattr(project, "prefetched_tags"):
+        return {tagged_item.tag.name for tagged_item in project.prefetched_tags}
+    return set(project.tagged_items.values_list("tag__name", flat=True))
+
+
+def parse_project_tag_filter(query_params: Any) -> tuple[list[str], str] | None:
+    """Read the `tags` / `tags_match` query pair, or None when no tag filter was asked for."""
+    raw = query_params.get("tags")
+    if not raw:
+        return None
+    tags = sorted({tagify(tag) for tag in raw.split(",") if tag.strip()})
+    if not tags:
+        return None
+    match = query_params.get("tags_match", "all")
+    if match not in TAGS_MATCH_MODES:
+        raise exceptions.ValidationError({"tags_match": f"Must be one of: {', '.join(TAGS_MATCH_MODES)}."})
+    return tags, match
+
+
+def filter_projects_by_tags(queryset: QuerySet[Project], tags: list[str], match: str) -> QuerySet[Project]:
+    """Narrow a project queryset to those carrying every tag ("all") or any of them ("any")."""
+    if match == "any":
+        return queryset.filter(tagged_items__tag__name__in=tags).distinct()
+    for tag in tags:
+        queryset = queryset.filter(tagged_items__tag__name=tag)
+    return queryset
+
+
+def report_project_tags_changed(*, user: User, project: Project, tags_before: set[str], tags_after: set[str]) -> None:
+    """Record a tag edit so adoption and depth of use can be measured after release."""
+    added = tags_after - tags_before
+    removed = tags_before - tags_after
+    if not added and not removed:
+        return
+    report_user_action(
+        user,
+        "project tags updated",
+        {
+            "tags_count_before": len(tags_before),
+            "tags_count_after": len(tags_after),
+            "tags_added_count": len(added),
+            "tags_removed_count": len(removed),
+            "is_first_tagging": not tags_before and bool(tags_after),
+            "all_tags_removed": bool(tags_before) and not tags_after,
+            "organization_project_count": Project.objects.filter(organization_id=project.organization_id).count(),
+        },
+        team=project.passthrough_team,
+    )
+
+
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
@@ -530,11 +602,33 @@ class ProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "organization_id", "created_at", "is_pending_deletion"]
 
 
+class ProjectBackwardCompatListSerializer(TaggedItemSerializerMixin, ProjectBackwardCompatBasicSerializer):
+    """List rows for /api/projects/. Same shape as the shared basic serializer, plus tags.
+
+    Tags are project-only, so they are not mirrored onto TeamBasicSerializer. The rewrite from
+    /api/environments/ lands on this viewset, so both surfaces still see the same rows.
+    """
+
+    tags = project_tags_field()
+
+    class Meta(ProjectBackwardCompatBasicSerializer.Meta):
+        fields = (*ProjectBackwardCompatBasicSerializer.Meta.fields, "tags")
+        read_only_fields = ProjectBackwardCompatBasicSerializer.Meta.fields
+
+
 class ProjectBackwardCompatSerializer(
+    TaggedItemSerializerMixin,
     UserAccessControlSerializerMixin,
     ProjectBackwardCompatBasicSerializer,
     UserPermissionsSerializerMixin,
 ):
+    """A project and its settings, including the settings that live on its passthrough Team.
+
+    This shape is a superset of TeamSerializer's, so a request rewritten from /api/environments/
+    onto /api/projects/ never loses a field.
+    """
+
+    tags = project_tags_field()
     effective_membership_level = serializers.SerializerMethodField()  # Compat with TeamSerializer
     has_group_types = serializers.SerializerMethodField()  # Compat with TeamSerializer
     group_types = serializers.SerializerMethodField()  # Compat with TeamSerializer
@@ -595,6 +689,7 @@ class ProjectBackwardCompatSerializer(
             "organization",
             "name",
             "product_description",
+            "tags",
             "created_at",
             "effective_membership_level",  # Compat with TeamSerializer
             "has_group_types",  # Compat with TeamSerializer
@@ -1060,6 +1155,9 @@ class ProjectBackwardCompatSerializer(
         ):
             validated_data.pop(config_field, None)
 
+        # Tags need a saved project to point at, so they are written at the end of this method.
+        tags = validated_data.pop("tags", None)
+
         serializers.raise_errors_on_nested_writes("create", self, validated_data)
         request = self.context["request"]
 
@@ -1107,9 +1205,17 @@ class ProjectBackwardCompatSerializer(
             detail=Detail(name=str(team.name)),
         )
 
+        self._attempt_set_tags(tags, project)
+
         return project
 
     def update(self, instance: Project, validated_data: dict[str, Any]) -> Project:
+        # Tags live in a join table, so they must not reach the passthrough loop below, which
+        # setattr()s everything left in validated_data onto the Project or its Team. This class
+        # defines its own update(), so TaggedItemSerializerMixin.update never runs and the write
+        # happens explicitly at the end.
+        tags = validated_data.pop("tags", None)
+
         team = instance.passthrough_team
         team_before_update = team.__dict__.copy()
         project_before_update = instance.__dict__.copy()
@@ -1283,11 +1389,36 @@ class ProjectBackwardCompatSerializer(
             team,
         )
 
+        self._attempt_set_tags(tags, instance)
+
         return instance
 
 
 @extend_schema(extensions={"x-product": "core"})
 @extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="tags",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Comma-separated tag names to filter by, for example `production,eu-region`. "
+                    "Names are trimmed and lowercased before matching."
+                ),
+            ),
+            OpenApiParameter(
+                name="tags_match",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                enum=list(TAGS_MATCH_MODES),
+                description=(
+                    "How to combine the `tags` filter. `all` (the default) returns projects carrying "
+                    "every listed tag; `any` returns projects carrying at least one."
+                ),
+            ),
+        ],
+    ),
     retrieve=extend_schema(
         description=("Retrieve a project and its settings."),
     ),
@@ -1312,7 +1443,14 @@ class ProjectViewSet(
 
     scope_object: APIScopeObjectOrNotSupported = "project"
     serializer_class = ProjectBackwardCompatSerializer
-    queryset = Project.objects.all().select_related("organization").prefetch_related("teams")
+    queryset = (
+        Project.objects.all()
+        .select_related("organization")
+        .prefetch_related(
+            "teams",
+            Prefetch("tagged_items", queryset=TaggedItem.objects.select_related("tag"), to_attr="prefetched_tags"),
+        )
+    )
     lookup_field = "id"
     ordering = "-created_by"
     filter_backends = [PhraseSearchFilter]
@@ -1324,17 +1462,40 @@ class ProjectViewSet(
         queryset = queryset.filter(id__in=visible_teams_ids)
         if scoped_organizations := get_authenticator_scoped_organization_ids(self.request.successful_authenticator):
             queryset = queryset.filter(organization_id__in=scoped_organizations)
+        if tag_filter := parse_project_tag_filter(self.request.query_params):
+            tags, match = tag_filter
+            queryset = filter_projects_by_tags(queryset, tags, match)
         return queryset
 
     def get_serializer_class(self) -> type[serializers.BaseSerializer]:
         if self.action == "list":
-            return ProjectBackwardCompatBasicSerializer
+            return ProjectBackwardCompatListSerializer
         return super().get_serializer_class()
 
     def perform_create(self, serializer: serializers.BaseSerializer) -> None:
         super().perform_create(serializer)
         project = cast(Project, serializer.instance)
         self._notify_org_admins_of_member_project_creation(project)
+        if "tags" in serializer.initial_data:
+            report_project_tags_changed(
+                user=cast(User, self.request.user),
+                project=project,
+                tags_before=set(),
+                tags_after=current_project_tag_names(project),
+            )
+
+    def perform_update(self, serializer: serializers.BaseSerializer) -> None:
+        project = cast(Project, serializer.instance)
+        # Read the old names before saving: the tag write replaces the prefetch this reads from.
+        tags_before = current_project_tag_names(project) if "tags" in serializer.initial_data else None
+        super().perform_update(serializer)
+        if tags_before is not None:
+            report_project_tags_changed(
+                user=cast(User, self.request.user),
+                project=project,
+                tags_before=tags_before,
+                tags_after=current_project_tag_names(project),
+            )
 
     def _notify_org_admins_of_member_project_creation(self, project: Project) -> None:
         """When a member (below admin) creates a project, notify org admins/owners in-app. Best-effort."""

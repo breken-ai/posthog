@@ -53,7 +53,7 @@ import type {
     PaginatedOrganizationDomainListApi,
     PaginatedOrganizationInviteListApi,
     PaginatedOrganizationOAuthApplicationListApi,
-    PaginatedProjectBackwardCompatBasicListApi,
+    PaginatedProjectBackwardCompatListListApi,
     PaginatedProjectSecretAPIKeyListApi,
     PaginatedUserGitHubIntegrationListResponseListApi,
     PaginatedUserListApi,
@@ -743,8 +743,8 @@ export const organizationsProjectsList = async (
     organizationId: string,
     params?: OrganizationsProjectsListParams,
     options?: RequestInit
-): Promise<PaginatedProjectBackwardCompatBasicListApi> => {
-    return apiMutator<PaginatedProjectBackwardCompatBasicListApi>(
+): Promise<PaginatedProjectBackwardCompatListListApi> => {
+    return apiMutator<PaginatedProjectBackwardCompatListListApi>(
         getOrganizationsProjectsListUrl(organizationId, params),
         {
             ...options,

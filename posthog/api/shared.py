@@ -123,7 +123,9 @@ class ProjectBackwardCompatBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = (
+        # Annotated as a variable-length tuple so a subclass can extend it (see
+        # ProjectBackwardCompatListSerializer, which appends "tags").
+        fields: tuple[str, ...] = (
             "id",
             "uuid",  # Compat with TeamSerializer
             "organization",
