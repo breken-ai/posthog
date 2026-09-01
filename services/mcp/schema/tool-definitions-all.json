@@ -2291,20 +2291,6 @@
             "readOnlyHint": false
         }
     },
-    "dashboard-create-text-tile": {
-        "description": "DEPRECATED: renamed to dashboard-create-tile. This alias forwards to dashboard-create-tile and will be removed. Call dashboard-create-tile directly with the same arguments.",
-        "category": "Dashboards",
-        "feature": "dashboards",
-        "summary": "Deprecated alias for dashboard-create-tile.",
-        "title": "Create dashboard text tile (deprecated)",
-        "required_scopes": ["dashboard:write"],
-        "annotations": {
-            "destructiveHint": false,
-            "idempotentHint": false,
-            "openWorldHint": true,
-            "readOnlyHint": false
-        }
-    },
     "dashboard-create-tile": {
         "description": "Add a dashboard tile. Set `type` to text or image. Use Markdown headings, dividers, or notes for a text tile. The desktop grid is 12 columns wide. A typical text heading uses a thin full-width banner (e.g. `layouts.sm = {x: 0, y: 0, w: 12, h: 1}`). If `layouts` is omitted, the dashboard places the tile at the bottom with the default size. Use dashboard-reorder-tiles for precise placement. An image tile body must contain exactly one Markdown image, such as `![Accessible description](https://example.com/image.png)`. The image URL must be reachable by dashboard viewers. Use `layouts` to control the tile size.",
         "category": "Dashboards",

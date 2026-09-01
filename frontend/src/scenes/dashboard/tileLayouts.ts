@@ -26,8 +26,11 @@ const MIN_TILE_DIMENSIONS = {
     default: { w: 2, h: 2 },
     image: { w: 1, h: 2 },
     text: { w: 1, h: 1 },
+    button: { w: 1, h: 1 },
     widget: { w: 3, h: 4 },
 } as const
+
+type TileLayoutKind = keyof typeof MIN_TILE_DIMENSIONS
 
 /** Fallback tile dimensions (half-width, standard height) when a tile has no known layout yet. */
 export const DEFAULT_INSERTED_TILE_SIZE = { w: 6, h: 5 } as const
@@ -47,33 +50,25 @@ function getWidgetCatalogLayout(widgetType: string | undefined): WidgetCatalogLa
 }
 
 function getTileMinDimensions({
-    columnCount,
-    isTextTile,
-    isImageTile,
-    isButtonTile,
-    isWidgetTile,
+    tileLayoutKind,
     widgetCatalogLayout,
 }: {
-    columnCount: number
-    isTextTile: boolean
-    isImageTile: boolean
-    isButtonTile: boolean
-    isWidgetTile: boolean
+    tileLayoutKind: TileLayoutKind
     widgetCatalogLayout: WidgetCatalogLayout | undefined
 }): { minW: number; minH: number } {
-    if (isImageTile) {
-        return { minW: Math.min(MIN_TILE_DIMENSIONS.image.w, columnCount), minH: MIN_TILE_DIMENSIONS.image.h }
-    }
-    if (isTextTile || isButtonTile) {
-        return { minW: MIN_TILE_DIMENSIONS.text.w, minH: MIN_TILE_DIMENSIONS.text.h }
-    }
-    if (isWidgetTile) {
+    if (tileLayoutKind === 'widget') {
+        const dimensions = MIN_TILE_DIMENSIONS.widget
         return {
-            minW: widgetCatalogLayout?.minW ?? MIN_TILE_DIMENSIONS.widget.w,
-            minH: widgetCatalogLayout?.minH ?? MIN_TILE_DIMENSIONS.widget.h,
+            minW: widgetCatalogLayout?.minW ?? dimensions.w,
+            minH: widgetCatalogLayout?.minH ?? dimensions.h,
         }
     }
-    return { minW: MIN_TILE_DIMENSIONS.default.w, minH: MIN_TILE_DIMENSIONS.default.h }
+
+    const dimensions = MIN_TILE_DIMENSIONS[tileLayoutKind]
+    return {
+        minW: dimensions.w,
+        minH: dimensions.h,
+    }
 }
 
 export interface DuplicateLayoutResult {
@@ -291,6 +286,27 @@ export const calculateLayouts = (
             const isImageTile = imageTileIds.has(tile.id)
             const isButtonTile = !!tile.button_tile
             const isWidgetTile = !!tile.widget
+            let tileLayoutKind: TileLayoutKind
+            switch (true) {
+                case isImageTile:
+                    tileLayoutKind = 'image'
+                    break
+                case isTextTile:
+                    tileLayoutKind = 'text'
+                    break
+                case isButtonTile:
+                    tileLayoutKind = 'button'
+                    break
+                case isWidgetTile:
+                    tileLayoutKind = 'widget'
+                    break
+                case !!tile.insight:
+                    tileLayoutKind = 'default'
+                    break
+                default:
+                    console.warn('Unknown dashboard tile type', { tileId: tile.id })
+                    tileLayoutKind = 'default'
+            }
             const widgetCatalogLayout = isWidgetTile ? getWidgetCatalogLayout(tile.widget?.widget_type) : undefined
             if (isButtonTile) {
                 defaultW = 2
@@ -303,11 +319,7 @@ export const calculateLayouts = (
             const realW = Math.min(w || defaultW, columnCount)
             const realH = h || (typeof xsSmH === 'number' && xsSmH > 0 ? xsSmH : undefined) || defaultH
             const { minW, minH } = getTileMinDimensions({
-                columnCount,
-                isTextTile,
-                isImageTile,
-                isButtonTile,
-                isWidgetTile,
+                tileLayoutKind,
                 widgetCatalogLayout,
             })
             const constrainedW = isImageTile ? Math.max(realW, minW) : realW

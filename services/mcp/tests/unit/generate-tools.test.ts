@@ -1472,11 +1472,6 @@ describe('ToolConfigSchema validation', () => {
         expect(result.success).toBe(true)
     })
 
-    it('allows input_schema with exclude_params', () => {
-        const result = ToolConfigSchema.safeParse({ ...validBase, exclude_params: ['name'] })
-        expect(result.success).toBe(true)
-    })
-
     it('accepts response_type override', () => {
         const result = ToolConfigSchema.safeParse({
             operation: 'things_list',

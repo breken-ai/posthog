@@ -4996,12 +4996,23 @@ export const dashboardLogic = kea<dashboardLogicType>([
             actions.setDashboardMode(null, DashboardEventSource.Browser)
         },
 
-        '/dashboard/:id': () => {
+        '/dashboard/:id': (_params, searchParams) => {
             actions.setSubscriptionMode(false, undefined)
             actions.setTextTileId(null)
             actions.setButtonTileId(null)
             if (values.dashboardMode === DashboardMode.Sharing) {
                 actions.setDashboardMode(null, DashboardEventSource.Browser)
+            }
+            switch (searchParams.tileType) {
+                case 'text':
+                    actions.openTextTileModal()
+                    break
+                case 'image':
+                    actions.openImageTileModal()
+                    break
+                case 'button':
+                    actions.openButtonTileModal()
+                    break
             }
         },
         '/dashboard/:id/sharing': () => {
@@ -5010,17 +5021,9 @@ export const dashboardLogic = kea<dashboardLogicType>([
             actions.setButtonTileId(null)
             actions.setDashboardMode(DashboardMode.Sharing, DashboardEventSource.Browser)
         },
-        '/dashboard/:id/tiles/:tileId': ({ tileId }, searchParams) => {
+        '/dashboard/:id/tiles/:tileId': ({ tileId }) => {
             actions.setSubscriptionMode(false, undefined)
             actions.setDashboardMode(null, DashboardEventSource.Browser)
-            if (tileId === 'new') {
-                if (searchParams.tileType === 'text') {
-                    actions.openTextTileModal()
-                } else if (searchParams.tileType === 'button') {
-                    actions.openButtonTileModal()
-                }
-                return
-            }
             const parsedTileId = parseDashboardTileId(tileId)
             actions.setTextTileId(parsedTileId)
             actions.setButtonTileId(parsedTileId)

@@ -1521,12 +1521,11 @@ function generateCustomSchemaToolCode(
     handlerBody += `        const parsedParams = ${schemaName}.parse(params)\n`
 
     if (pathParamNames.length > 0) {
-        const excludedBodyParams = (config.exclude_params ?? []).filter((param) => !pathParamNames.includes(param))
-        const destructured = [...pathParamNames, ...excludedBodyParams.map((param) => `${param}: _${param}`)].join(', ')
+        const destructured = pathParamNames.map((p) => `${p}, `).join('')
         if (useBody) {
-            handlerBody += `        const { ${destructured}, ...body } = parsedParams\n`
+            handlerBody += `        const { ${destructured}...body } = parsedParams\n`
         } else {
-            handlerBody += `        const { ${destructured}, ...query } = parsedParams\n`
+            handlerBody += `        const { ${destructured}...query } = parsedParams\n`
         }
     }
 
