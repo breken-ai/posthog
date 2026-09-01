@@ -123,6 +123,10 @@ jobs:
             migrations: ${{ steps.filter.outputs.migrations || 'true' }}
             migrations_files: ${{ steps.filter.outputs.migrations_files }}
             migrations_any: ${{ steps.filter.outputs.migrations_any || 'true' }}
+            # Django migration files only. The replay gate in check-migrations reads
+            # this, so a ClickHouse or async-migration change does not pay for a replay
+            # of a history the Django planner never sees.
+            django_migrations: ${{ steps.filter.outputs.django_migrations || 'true' }}
             persons_sql: ${{ steps.filter.outputs.persons_sql || 'true' }}
             tasks_temporal: ${{ steps.filter.outputs.tasks_temporal || 'true' }}
             openapi_types: ${{ steps.filter.outputs.openapi_types || 'true' }}
@@ -335,6 +339,14 @@ jobs:
                       # deleted-migration check in repo-checks.
                       migrations_any:
                         - '**/migrations/*.py'
+                      # Django migration files in any app. Match everything and exclude the
+                      # two non-Django directories, so a new app is covered without an edit
+                      # here. An app missed by a positive list would leave the replay gate
+                      # silently off for it.
+                      django_migrations:
+                        - '**/migrations/*.py'
+                        - '!posthog/clickhouse/migrations/*.py'
+                        - '!posthog/async_migrations/migrations/*.py'
                       persons_sql:
                         - 'rust/persons_migrations/*.sql'
                         - 'rust/bin/migrate-persons'
@@ -1433,10 +1445,12 @@ jobs:
         # caches), so the hourly scheduled run skips it as already covered.
         if: (needs.changes.outputs.backend == 'true' || needs.changes.outputs.migrations == 'true' || needs.changes.outputs.persons_sql == 'true') && github.event_name != 'schedule'
         # On master this job replays the full migration history from scratch to
-        # produce the schema dump every PR job restores. That replay grows with
-        # every merged migration, so the limit needs headroom over it: it is
-        # there to cancel a hang, not to cap how long the history takes.
-        timeout-minutes: 40
+        # produce the schema dump every PR job restores, and a branch that changes a
+        # Django migration replays it a second time onto an empty database. That
+        # replay grows with every merged migration, so the limit needs headroom over
+        # two of them: it is there to cancel a hang, not to cap how long the history
+        # takes.
+        timeout-minutes: 60
         outputs:
             mig_schema_key: ${{ steps.mig-schema-key.outputs.key }}
         # The "Publish Migration risk check" step posts the check via the
@@ -1925,6 +1939,28 @@ jobs:
                   # Then run persons migrations using sqlx
                   DATABASE_URL="postgres://posthog:posthog@localhost:5432/posthog_persons" \
                     sqlx migrate run --source rust/persons_migrations/
+
+            - name: Replay the full migration history for this PR
+              # The steps above prime the database from the cached master schema dump, so
+              # the migrate that follows only applies the migrations this branch adds.
+              # That hides a branch whose new migration moves an older one's position in
+              # the plan, because the older one is already recorded as applied and never
+              # runs against its new neighbours. A replay onto an empty database is the
+              # only step that runs the whole history in the order this branch produces.
+              # Master pushes already replay from scratch, which is where such a break
+              # surfaces today, one merge too late.
+              if: github.event_name != 'push' && needs.changes.outputs.django_migrations == 'true'
+              env:
+                  REPLAY_DB: posthog_migration_replay
+              run: |
+                  set -euo pipefail
+                  docker compose -f docker-compose.dev.yml exec -T db psql -q -U posthog postgres \
+                      -c "DROP DATABASE IF EXISTS ${REPLAY_DB};" \
+                      -c "CREATE DATABASE ${REPLAY_DB};"
+                  if ! DATABASE_URL="postgres://posthog:posthog@localhost:5432/${REPLAY_DB}" python manage.py migrate; then
+                      echo "::error::The migration history does not apply to an empty database. A merge to master fails the same way. Read the traceback above for the migration that stopped, and check whether another migration this branch adds moved it in the plan."
+                      exit 1
+                  fi
 
             - name: Dump migrated schema
               if: github.event_name == 'push'
