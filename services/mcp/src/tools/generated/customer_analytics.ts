@@ -628,7 +628,6 @@ const accountsSummariesList = (): ToolBase<
             query: {
                 limit: params.limit,
                 offset: params.offset,
-                search: params.search,
             },
         })
         return await withPostHogUrl(context, result, '/customer_analytics')
@@ -1060,6 +1059,7 @@ const customPropertySourcesRunsList = (): ToolBase<
             query: {
                 limit: params.limit,
                 offset: params.offset,
+                search: params.search,
             },
         })
         return await withPostHogUrl(context, result, '/customer_analytics')
