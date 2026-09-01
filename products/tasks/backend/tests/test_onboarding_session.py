@@ -22,6 +22,7 @@ from products.tasks.backend.facade.onboarding import (
     _session_enabled,
     onboarding_test_tools_enabled,
     start_onboarding_session,
+    start_onboarding_test_session,
 )
 from products.tasks.backend.facade.onboarding_canvas import TeachingCanvas
 from products.tasks.backend.models import Task, TaskClientProvenance
@@ -158,6 +159,28 @@ class TestOnboardingSessionIdempotency(TestCase):
 
         self.assertEqual(started, task_id)
         self.assertEqual(create_calls, 1)
+
+    def test_test_session_uses_the_selected_model(self) -> None:
+        task_id = uuid4()
+        created = contracts.CreatedTaskDTO(task_id=task_id, team_id=self.team.id, latest_run=None)
+
+        with patch(f"{MODULE}.create_and_run_task", return_value=created) as create:
+            started = start_onboarding_test_session(
+                self.team,
+                self.user,
+                company_domain="",
+                joining_existing_organization=False,
+                has_events=False,
+                signal_reports_waiting=0,
+                other_members=[],
+                sources_enabled=[],
+                sources_watching=[],
+                sources_newly_enabled=False,
+                model="gpt-5.5",
+            )
+
+        self.assertEqual(started, task_id)
+        self.assertEqual(create.call_args.kwargs["model"], "gpt-5.5")
 
     def test_an_invalid_managed_prompt_uses_the_bundled_prompt_and_captures_the_fallback(self) -> None:
         task_id = uuid4()

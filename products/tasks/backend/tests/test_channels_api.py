@@ -156,7 +156,12 @@ class ChannelsAPITestCase(TestCase):
         ) as start:
             response = self.client.post(
                 f"{self._channels_url()}onboarding_session_test/",
-                {"joining_existing_organization": True, "other_members": ["Max"], "has_events": True},
+                {
+                    "joining_existing_organization": True,
+                    "other_members": ["Max"],
+                    "has_events": True,
+                    "model": "gpt-5.5",
+                },
                 format="json",
             )
 
@@ -164,6 +169,7 @@ class ChannelsAPITestCase(TestCase):
         self.assertEqual(response.json(), {"task_id": str(task_id), "channel_id": personal_id})
         self.assertTrue(start.call_args.kwargs["joining_existing_organization"])
         self.assertEqual(start.call_args.kwargs["other_members"], ["Max"])
+        self.assertEqual(start.call_args.kwargs["model"], "gpt-5.5")
 
         teaching = TeachingCanvas(channel_id=uuid4(), canvas_id=canvas_id)
         with patch(

@@ -16,6 +16,7 @@ import {
   type CloudTaskConfigOption,
   DISMISSAL_REASON_OPTIONS,
   type DismissalReasonOptionValue,
+  type GatewayModel,
   getCloudTaskGatewayUrl,
   isSupportedReasoningEffort,
   normalizeGatewayModelsResponse,
@@ -1757,6 +1758,13 @@ export class PostHogAPIClient {
   async getCloudTaskConfigOptions(
     adapter: Adapter = "claude",
   ): Promise<CloudTaskConfigOption[]> {
+    return buildCloudTaskConfigOptions(
+      await this.getCloudTaskModels(),
+      adapter,
+    );
+  }
+
+  async getCloudTaskModels(): Promise<GatewayModel[]> {
     const teamId = await this.getTeamId();
     const url = new URL(`${getCloudTaskGatewayUrl(this.apiHost)}/v1/models`);
     const response = await this.api.fetcher.fetch({
@@ -1767,10 +1775,7 @@ export class PostHogAPIClient {
         header: buildPosthogProjectHeaderRecord(teamId),
       },
     });
-    return buildCloudTaskConfigOptions(
-      normalizeGatewayModelsResponse(await response.json()),
-      adapter,
-    );
+    return normalizeGatewayModelsResponse(await response.json());
   }
 
   // The task currently generating this folder's CONTEXT.md, shared across the
@@ -3012,6 +3017,7 @@ export class PostHogAPIClient {
     sources_enabled: string[];
     sources_watching: string[];
     sources_newly_enabled: boolean;
+    model?: string | null;
   }): Promise<{ task_id: string; channel_id: string }> {
     const teamId = await this.getTeamId();
     const urlPath = `/api/projects/${teamId}/task_channels/onboarding_session_test/`;

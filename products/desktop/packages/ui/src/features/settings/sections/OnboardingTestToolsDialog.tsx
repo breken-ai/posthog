@@ -20,7 +20,18 @@ import {
   QuestionnaireProgress,
   QuestionnaireSubmit,
   QuestionnaireTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@posthog/quill";
+import {
+  buildCloudTaskConfigOptions,
+  type CloudTaskConfigSelectOption,
+  type GatewayModel,
+  isRestrictedModelOption,
+} from "@posthog/shared";
 import { useAuthenticatedClient } from "@posthog/ui/features/auth/authClient";
 import { leaveSettings } from "@posthog/ui/features/settings/hooks/useOpenSettings";
 import { toast } from "@posthog/ui/primitives/toast";
@@ -30,6 +41,7 @@ import {
   type ComponentProps,
   type FormEvent,
   type ReactElement,
+  useEffect,
   useState,
 } from "react";
 
@@ -38,6 +50,9 @@ const ALREADY_WATCHING = ["error tracking", "web analytics"];
 
 /** What "findings are waiting" stands for, so that answer needs no input. */
 const FINDINGS_WAITING = 3;
+
+const DEFAULT_PAID_MODEL = "claude-opus-4-8";
+const DEFAULT_FREE_MODEL = "@cf/zai-org/glm-5.2";
 
 function commaSeparated(value: string): string[] {
   return value
@@ -62,6 +77,7 @@ interface Draft {
   otherMembers: string;
   situation: Situation;
   sourcesWatching: string;
+  model: string | null;
 }
 
 const DEFAULT_DRAFT: Draft = {
@@ -70,6 +86,7 @@ const DEFAULT_DRAFT: Draft = {
   otherMembers: "Max, Lotte",
   situation: "nothing-connected",
   sourcesWatching: "errors, conversion drops",
+  model: null,
 };
 
 function toRequest(draft: Draft) {
@@ -87,7 +104,36 @@ function toRequest(draft: Draft) {
         ? commaSeparated(draft.sourcesWatching)
         : [],
     sources_newly_enabled: draft.situation === "just-switched-on",
+    model: draft.model,
   };
+}
+
+export function availableOnboardingTestModels(
+  models: GatewayModel[],
+): CloudTaskConfigSelectOption[] {
+  const options = new Map<string, CloudTaskConfigSelectOption>();
+  for (const adapter of ["claude", "codex"] as const) {
+    const modelOption = buildCloudTaskConfigOptions(models, adapter).find(
+      (option) => option.category === "model",
+    );
+    for (const option of modelOption?.options ?? []) {
+      if (!isRestrictedModelOption(option._meta)) {
+        options.set(option.value, option);
+      }
+    }
+  }
+  return [...options.values()];
+}
+
+function defaultOnboardingTestModel(
+  options: CloudTaskConfigSelectOption[],
+): string | null {
+  return (
+    options.find((option) => option.value === DEFAULT_PAID_MODEL)?.value ??
+    options.find((option) => option.value === DEFAULT_FREE_MODEL)?.value ??
+    options[0]?.value ??
+    null
+  );
 }
 
 /** A question answered by typing, so it wears a plain field instead of a choice row. */
@@ -131,9 +177,36 @@ export function OnboardingTestToolsDialog({
   const client = useAuthenticatedClient();
   const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
   const [starting, setStarting] = useState(false);
+  const [modelOptions, setModelOptions] = useState<
+    CloudTaskConfigSelectOption[]
+  >([]);
 
   const patch = (values: Partial<Draft>): void =>
     setDraft((current) => ({ ...current, ...values }));
+
+  useEffect(() => {
+    if (!open) return;
+
+    let active = true;
+    setModelOptions([]);
+    setDraft((current) => ({ ...current, model: null }));
+    void client
+      .getCloudTaskModels()
+      .then((models) => {
+        if (!active) return;
+        const options = availableOnboardingTestModels(models);
+        setModelOptions(options);
+        setDraft((current) => ({
+          ...current,
+          model: defaultOnboardingTestModel(options),
+        }));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [client, open]);
 
   const startSession = async (): Promise<void> => {
     setStarting(true);
@@ -158,6 +231,7 @@ export function OnboardingTestToolsDialog({
     { name: "members", disabled: !draft.joining },
     { name: "situation" },
     { name: "watching", disabled: draft.situation !== "just-switched-on" },
+    ...(modelOptions.length > 0 ? [{ name: "model" }] : []),
   ];
 
   return (
@@ -307,6 +381,35 @@ export function OnboardingTestToolsDialog({
                 onValueChange={(sourcesWatching) => patch({ sourcesWatching })}
               />
             </QuestionnaireItem>
+
+            {modelOptions.length > 0 && (
+              <QuestionnaireItem name="model">
+                <QuestionnaireTitle>
+                  Which model should run this test?
+                </QuestionnaireTitle>
+                <QuestionnaireChoices>
+                  <Select
+                    value={draft.model}
+                    onValueChange={(model: string | null) => patch({ model })}
+                    items={modelOptions.map((option) => ({
+                      value: option.value,
+                      label: option.name,
+                    }))}
+                  >
+                    <SelectTrigger aria-label="Model" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modelOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </QuestionnaireChoices>
+              </QuestionnaireItem>
+            )}
           </DialogBody>
 
           <DialogFooter>
