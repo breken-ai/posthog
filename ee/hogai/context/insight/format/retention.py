@@ -24,7 +24,8 @@ class RetentionResultsFormatter:
         self._results = results
 
     def format(self) -> str:
-        results = [series for series in self._results if isinstance(series.get("date"), str)]
+        # A cohort that starts in the future has no date to report, so it holds no retention data.
+        results = [series for series in self._results if series.get("date") is not None]
         period = self._period
 
         if not results:

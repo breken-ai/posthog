@@ -1,8 +1,18 @@
+from datetime import UTC, datetime
 from typing import Any
 
 from posthog.test.base import BaseTest
 
-from posthog.schema import AssistantRetentionEventsNode, AssistantRetentionFilter, AssistantRetentionQuery
+from parameterized import parameterized
+
+from posthog.schema import (
+    AssistantRetentionEventsNode,
+    AssistantRetentionFilter,
+    AssistantRetentionQuery,
+    RetentionQueryResponse,
+    RetentionResult,
+    RetentionValue,
+)
 
 from .. import RetentionResultsFormatter
 
@@ -110,4 +120,40 @@ class TestRetentionResultsFormatter(BaseTest):
             "Time interval: Day\n"
             "Date|Number of persons on date|Day 0\n"
             "2025-01-21 00:00|100|100%|50%",
+        )
+
+    @parameterized.expand([("json", {"mode": "json"}), ("python", {"by_alias": True})])
+    def test_format_retention_from_response_dump(self, _name: str, dump_kwargs: dict[str, Any]):
+        # The query API dumps in Python mode, so the formatter gets datetime dates there and ISO
+        # strings from the assistant executor. Both callers must get the same table.
+        response = RetentionQueryResponse(
+            results=[
+                RetentionResult(
+                    date=datetime(2025, 1, 21, tzinfo=UTC),
+                    label="Day 0",
+                    values=[RetentionValue(count=100), RetentionValue(count=50)],
+                ),
+                RetentionResult(
+                    date=datetime(2025, 1, 22, tzinfo=UTC),
+                    label="Day 1",
+                    values=[RetentionValue(count=50)],
+                ),
+            ]
+        )
+
+        self.assertEqual(
+            RetentionResultsFormatter(
+                AssistantRetentionQuery(
+                    retentionFilter=AssistantRetentionFilter(
+                        targetEntity=AssistantRetentionEventsNode(id="event"),
+                        returningEntity=AssistantRetentionEventsNode(id="event"),
+                    )
+                ),
+                response.model_dump(**dump_kwargs)["results"],
+            ).format(),
+            "Date range: 2025-01-21 00:00 to 2025-01-22 00:00\n"
+            "Time interval: Day\n"
+            "Date|Number of persons on date|Day 0|Day 1\n"
+            "2025-01-21 00:00|100|100%|50%\n"
+            "2025-01-22 00:00|50|100%",
         )

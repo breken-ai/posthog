@@ -99,7 +99,11 @@ def format_date(date: datetime.date) -> str:
     return date.strftime("%Y-%m-%d")
 
 
-def strip_datetime_seconds(date: str) -> str:
+def strip_datetime_seconds(date: str | datetime.date) -> str:
+    # Responses reach the formatters in two shapes: a `mode="json"` dump gives an ISO string, while a
+    # plain `model_dump()` keeps the date object the query runner produced.
+    if isinstance(date, datetime.date):
+        date = date.isoformat()
     return datetime.datetime.fromisoformat(date).strftime("%Y-%m-%d %H:%M" if ":" in date else "%Y-%m-%d")
 
 
