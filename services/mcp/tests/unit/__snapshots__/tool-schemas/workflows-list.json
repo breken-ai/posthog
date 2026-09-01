@@ -21,6 +21,10 @@
             "description": "The initial index from which to return the results.",
             "type": "number"
         },
+        "optimisation_enabled": {
+            "description": "Only workflows someone turned suggestions on for.",
+            "type": "boolean"
+        },
         "search": {
             "description": "Case-insensitive search across workflow name and description.",
             "type": "string"
