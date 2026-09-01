@@ -274,7 +274,7 @@ Details: `/depot-github-runners`.
 
 ## Draft vs ready-for-review
 
-**`ready_for_review` is not the merge gate.** The merge queue's run on a `trunk-merge/` branch is.
+The merge gate is the merge queue's run on a `trunk-merge/` branch.
 So a heavy suite runs its narrowed subset on drafts _and_ on ready PRs, and only the queue run takes the full matrix.
 `ci-backend.yml`, `ci-frontend.yml`, `ci-storybook.yml`, and `ci-e2e-playwright.yml` all work this way.
 Exclude the queue with `!startsWith(github.head_ref, 'trunk-merge/')`, or with `draft != true` since those PRs open as drafts — not with `draft == true`.
@@ -286,8 +286,38 @@ What draft state _does_ decide is the fallback when a selection cannot be truste
 - **draft → skip the suite.** Its own ready run selects again, so nothing is lost.
 - **ready → full matrix.** No later run on that PR would cover it, and a narrowed run the selector can't vouch for is false confidence.
 
-`turbo-discover.js` (`draft ? 'skip' : 'full'`) and `ci-frontend.yml`'s `fall_back` are the two reference implementations.
+The real test is not draft-vs-ready, it is whether a later run on this PR exists to defer to.
+So **draft → skip is only valid when the workflow lists `ready_for_review` in its `pull_request` types and its "... Tests Pass" aggregator treats `skipped` as success.**
+Otherwise the fallback is full on drafts too: `ci-nodejs.yml` has a bare `pull_request:` trigger, so a skipped draft would never get a second run, and `ci-e2e-playwright.yml` skips drafts entirely, so there is no draft run to fall back from.
+
+`turbo-discover.js` (`draft ? 'skip' : 'full'`) and `ci-frontend.yml`'s `fall_back` are the two reference implementations of the draft/ready split; `ci-nodejs.yml` and `ci-e2e-playwright.yml` are the reference for always-full.
 Foot-gun: if the job that selects tests is cancelled mid-flight, its `mode` output is empty — normalize empty-mode **on a draft** to `skip`, or the draft grabs the full matrix and serializes the ready run behind it.
+
+## The hourly master lane
+
+The merge queue's `trunk-merge/**` run tests every commit before it lands, so re-running a heavy suite on the master push tests a commit that CI already covered.
+Those suites skip `push` and take their master coverage — and their Trunk flaky-test baseline — from an hourly `schedule:` instead.
+
+Crons are offset so the runs do not all fire at once, and the offsets live here rather than in the workflows:
+
+| Workflow          | Minute |
+| ----------------- | ------ |
+| `ci-frontend.yml` | 7      |
+| `ci-nodejs.yml`   | 13     |
+| `ci-backend.yml`  | 23     |
+| `ci-dagster.yml`  | 33     |
+| `ci-python.yml`   | 43     |
+| `ci-mcp.yml`      | 53     |
+
+Adding a seventh: pick an unused minute, add the row, and keep the gap at ten minutes.
+
+**The paths filter must be skipped on `schedule`, and every output it feeds must default to `true`.**
+On a cron the action has nothing to diff against: it gets no `base` input, so base resolves to the default branch and equals head, and `before` is set only on push events.
+It falls back to the last commit alone, so one docs-only commit narrows the hourly run to nothing and reports green having tested almost nothing — a silent failure, not a red one.
+Guard the step with `if: github.event_name != 'push' && github.event_name != 'schedule'`, and give each consumed output a `|| 'true'` default.
+
+Any _step_ that reads a filter output needs the same `schedule` arm.
+`ci-dagster.yml`'s `build-matrix` is the cautionary case: without it the matrix is `[]` and the hourly run passes having run no tests.
 
 ## Backwards-compat with unrebased PRs
 

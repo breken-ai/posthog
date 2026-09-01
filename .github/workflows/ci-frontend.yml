@@ -50,7 +50,8 @@ jobs:
         timeout-minutes: 5
         # A draft PR labeled `no-ci` skips this workflow entirely (prototypes):
         # every other job needs this one, and the gates treat skipped as success.
-        # ready_for_review re-runs everything, so the merge gate is unaffected.
+        # The merge queue's trunk-merge/** run is the gate, so skipping a draft
+        # never weakens what protects master.
         if: >-
             github.event_name != 'pull_request'
             || github.event.pull_request.draft != true
@@ -94,10 +95,9 @@ jobs:
             - uses: ./.github/actions/paths-filter
               id: filter
               # Skipped on master push and on the hourly schedule: every output then
-              # defaults to true. On a cron the action has nothing to diff against — it gets
-              # no `base` input, so base resolves to the default branch and equals head, and
-              # `before` is set only on push events — so it falls back to the last commit
-              # alone, and one docs-only commit would narrow the hourly run to nothing.
+              # defaults to true. See "The hourly master lane" in
+              # .agents/skills/authoring-ci-workflows/SKILL.md for why a cron cannot
+              # diff, and what breaks if this guard is dropped.
               if: github.event_name != 'push' && github.event_name != 'schedule'
               with:
                   token: ${{ steps.app-token.outputs.token || github.token }}
@@ -269,23 +269,22 @@ jobs:
                   # Mirrors the draft/ready fallback turbo-discover.js applies to the
                   # Django matrices. The run-ci-frontend label forces the full matrix.
                   fall_back() {
+                      local mode should_run matrix
                       if [[ "$PR_DRAFT" == "true" ]]; then
                           echo "::notice::$1; draft skips jest (its ready run selects again)"
-                          {
-                              echo "mode=skip"
-                              echo 'matrix={"include":[]}'
-                              echo "should_run=false"
-                              echo "changed_files="
-                          } >> "$GITHUB_OUTPUT"
+                          mode=skip should_run=false matrix='{"include":[]}'
                       else
+                          # Empty matrix: the jest job's own default supplies the full
+                          # fanout, so the shard shape is written down in one place.
                           echo "::notice::$1; running the full jest matrix"
-                          {
-                              echo "mode=full"
-                              echo 'matrix={"segment":["FOSS","EE"],"chunk":[1,2,3,4]}'
-                              echo "should_run=true"
-                              echo "changed_files="
-                          } >> "$GITHUB_OUTPUT"
+                          mode=full should_run=true matrix=
                       fi
+                      {
+                          echo "mode=$mode"
+                          echo "matrix=$matrix"
+                          echo "should_run=$should_run"
+                          echo "changed_files="
+                      } >> "$GITHUB_OUTPUT"
                   }
 
                   if [[ "$DIFF_OUTCOME" != "success" ]] || [[ ! -s /tmp/changed.txt ]]; then
@@ -371,7 +370,9 @@ jobs:
     frontend-format:
         name: Frontend formatting
         needs: changes
-        if: needs.changes.outputs.frontend == 'true'
+        # Not on the hourly cron: that lane exists for jest only, and formatting
+        # already ran on the push that landed each commit.
+        if: needs.changes.outputs.frontend == 'true' && github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 10
         steps:
@@ -423,7 +424,9 @@ jobs:
     frontend-bundle-size:
         name: Frontend bundle size
         needs: [changes]
-        if: needs.changes.outputs.frontend_code == 'true'
+        # Not on the hourly cron: the vs-base comparison build is pull_request-only,
+        # so a cron run measures an absolute size with nothing to compare it against.
+        if: needs.changes.outputs.frontend_code == 'true' && github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 10
         steps:
@@ -671,7 +674,9 @@ jobs:
     frontend-typescript-checks:
         name: Frontend typechecking
         needs: [changes]
-        if: needs.changes.outputs.frontend_code == 'true'
+        # Not on the hourly cron: that lane exists for jest only, and typechecking
+        # already ran on the push that landed each commit.
+        if: needs.changes.outputs.frontend_code == 'true' && github.event_name != 'schedule'
         # tsgo peaks ~12 GB type-checking the whole frontend, which OOM-kills it on a 16 GB
         # runner (ubuntu-latest and depot-ubuntu-24.04-4 alike). Peak tracks the type graph,
         # not parallelism or lib checking: skipLibCheck is already on, GOMAXPROCS and
@@ -841,7 +846,7 @@ jobs:
                       # matches nothing), and CHANGED_FILES is already scoped to
                       # frontend source files by select-jest-tests. --passWithNoTests
                       # so a changed source file with no related test doesn't fail the
-                      # run — the ready-for-review full matrix is the gate.
+                      # run — the merge queue's trunk-merge/** run is the gate.
                       pnpm --filter=@posthog/frontend build:products
                       # shellcheck disable=SC2086
                       pnpm --filter=@posthog/frontend exec jest \

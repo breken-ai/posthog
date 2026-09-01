@@ -60,10 +60,9 @@ jobs:
             - uses: ./.github/actions/paths-filter
               id: filter
               # Skipped on master push and on the hourly schedule: the decision step below
-              # treats both as "run everything". On a cron the action has nothing to diff
-              # against — it gets no `base` input, so base resolves to the default branch and
-              # equals head, and `before` is set only on push events — so it falls back to the
-              # last commit alone, and one docs-only commit would narrow the run to nothing.
+              # treats both as "run everything". See "The hourly master lane" in
+              # .agents/skills/authoring-ci-workflows/SKILL.md for why a cron cannot
+              # diff, and what breaks if this guard is dropped.
               if: github.event_name != 'push' && github.event_name != 'schedule'
               with:
                   token: ${{ steps.app-token.outputs.token || github.token }}
@@ -231,8 +230,7 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
 
     lint:
-        # Skipped on master push: the merge queue already ran this for every landed
-        # commit, and the hourly scheduled run keeps master coverage.
+        # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.nodejs == 'true' && github.event_name != 'push'
         name: Node.js Code quality (depot-ubuntu-24.04)
         needs: changes
@@ -298,8 +296,7 @@ jobs:
                         fi
 
     build:
-        # Skipped on master push: the merge queue already ran this for every landed
-        # commit, and the hourly scheduled run keeps master coverage.
+        # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.nodejs == 'true' && github.event_name != 'push'
         name: Node.js Build (depot-ubuntu-24.04)
         needs: changes
@@ -362,8 +359,7 @@ jobs:
                   fi
 
     tests:
-        # Skipped on master push: the merge queue already ran this for every landed
-        # commit, and the hourly scheduled run keeps master coverage.
+        # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.nodejs == 'true' && github.event_name != 'push'
         name: Node.js ${{ matrix.lane }} Tests ${{ matrix.shard }}/${{ matrix.shard_count }} (depot-ubuntu-24.04-4)
         needs: changes
@@ -695,8 +691,7 @@ jobs:
                   docker compose -f docker-compose.dev.yml exec clickhouse cat /var/log/clickhouse-server/clickhouse-server.err.log
 
     rust_ingestion_e2e:
-        # Skipped on master push: the merge queue already ran this for every landed
-        # commit, and the hourly scheduled run keeps master coverage.
+        # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.nodejs == 'true' && github.event_name != 'push'
         name: Rust ingestion consumer Node API e2e (depot-ubuntu-24.04-4)
         needs: changes

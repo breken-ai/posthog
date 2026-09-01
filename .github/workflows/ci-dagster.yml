@@ -113,10 +113,9 @@ jobs:
             - uses: ./.github/actions/paths-filter
               id: filter
               # Skipped on master push and on the hourly schedule: every output then
-              # defaults to true. On a cron the action has nothing to diff against — it gets
-              # no `base` input, so base resolves to the default branch and equals head, and
-              # `before` is set only on push events — so it falls back to the last commit
-              # alone, and one docs-only commit would narrow the hourly run to nothing.
+              # defaults to true. See "The hourly master lane" in
+              # .agents/skills/authoring-ci-workflows/SKILL.md for why a cron cannot
+              # diff, and what breaks if this guard is dropped.
               if: github.event_name != 'push' && github.event_name != 'schedule'
               with:
                   token: ${{ steps.app-token.outputs.token || github.token }}
@@ -246,7 +245,7 @@ jobs:
               id: read-versions
               # `schedule` has to be listed explicitly for the same reason as build-matrix
               # below, which consumes this step's oldest_supported output.
-              if: github.event_name == 'push' || github.event_name == 'schedule' || steps.filter.outputs.dagster == 'true'
+              if: github.event_name == 'schedule' || steps.filter.outputs.dagster == 'true'
               run: |
                   oldest_supported=$(jq -r '.oldest_supported' .github/clickhouse-versions.json)
                   if [ -z "$oldest_supported" ] || [ "$oldest_supported" = "null" ]; then
@@ -260,7 +259,7 @@ jobs:
               # `schedule` has to be listed explicitly: the paths filter is skipped there,
               # so steps.filter.outputs.dagster is empty. Without this the matrix would be
               # [] and the hourly run would report green having run no tests at all.
-              if: github.event_name == 'push' || github.event_name == 'schedule' || steps.filter.outputs.dagster == 'true'
+              if: github.event_name == 'schedule' || steps.filter.outputs.dagster == 'true'
               env:
                   OLDEST_SUPPORTED: ${{ steps.read-versions.outputs.oldest_supported }}
               run: |
