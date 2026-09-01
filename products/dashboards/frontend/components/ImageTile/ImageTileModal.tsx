@@ -9,6 +9,7 @@ import { IconImage } from '@posthog/icons'
 
 import { textCardConverter } from 'lib/components/Cards/TextCard/textCardMarkdown'
 import { textCardModalLogic } from 'lib/components/Cards/TextCard/textCardModalLogic'
+import type { TextCardModalProps } from 'lib/components/Cards/TextCard/textCardModalLogic'
 import { useUploadFiles } from 'lib/hooks/useUploadFiles'
 import { LemonButton } from 'lib/lemon-ui/LemonButton'
 import { LemonFileInput } from 'lib/lemon-ui/LemonFileInput'
@@ -66,11 +67,11 @@ export function ImageTileModal({
     imageTileId: DashboardTileIdOrNew
 }): JSX.Element {
     const isNewTile = imageTileId === null
-    const modalLogicProps = {
+    const modalLogicProps: TextCardModalProps = {
         dashboard,
         textTileId: imageTileId,
         onClose,
-        defaultTransparentBackground: true,
+        tileType: 'image',
     }
     const modalLogic = textCardModalLogic(modalLogicProps)
     const { objectStorageAvailable } = useValues(preflightLogic)

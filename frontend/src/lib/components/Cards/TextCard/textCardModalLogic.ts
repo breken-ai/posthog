@@ -17,11 +17,13 @@ export interface TextTileForm {
     transparent_background: boolean
 }
 
+export type TextCardTileType = 'text' | 'image'
+
 export interface TextCardModalProps {
     dashboard: DashboardType<QueryBasedInsightModel>
     textTileId: DashboardTileIdOrNew
     onClose: () => void
-    defaultTransparentBackground?: boolean
+    tileType: TextCardTileType
 }
 
 const MAX_TEXT_CARD_BODY_LENGTH = 4000
@@ -105,10 +107,7 @@ export type textCardModalLogicType = MakeLogicType<
 export const textCardModalLogic = kea<textCardModalLogicType>([
     path(['scenes', 'dashboard', 'dashboardTextTileModal', 'logic']),
     props({} as TextCardModalProps),
-    key(
-        (props) =>
-            `textCardModalLogic-${props.dashboard.id}-${props.textTileId}-${props.defaultTransparentBackground ? 'image' : 'text'}`
-    ),
+    key((props) => `textCardModalLogic-${props.dashboard.id}-${props.textTileId}-${props.tileType}`),
     connect(() => ({ actions: [dashboardsModel, ['updateDashboard']] })),
     listeners(({ props, actions, values }) => ({
         submitTextTileFailure: (error) => {
@@ -139,8 +138,7 @@ export const textCardModalLogic = kea<textCardModalLogicType>([
                     return
                 }
 
-                const contentName = props.defaultTransparentBackground ? 'image' : 'text'
-                lemonToast.error(`Could not save ${contentName}: ${normalizedMessage}`)
+                lemonToast.error(`Could not save ${props.tileType}: ${normalizedMessage}`)
             }
         },
         submitTextTileSuccess: ({ textTile }: { textTile: TextTileForm }) => {
@@ -160,7 +158,7 @@ export const textCardModalLogic = kea<textCardModalLogicType>([
         textTile: {
             defaults: (props.textTileId !== null
                 ? getExistingTextTile(props.dashboard, props.textTileId)
-                : { body: '', transparent_background: props.defaultTransparentBackground ?? false }) as TextTileForm,
+                : { body: '', transparent_background: props.tileType === 'image' }) as TextTileForm,
             errors: ({ body }) => {
                 return {
                     body: !body.trim()

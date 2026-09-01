@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react'
 import { textCardConverter } from 'lib/components/Cards/TextCard/textCardMarkdown'
 import { TextCardModalBodyField } from 'lib/components/Cards/TextCard/TextCardModalBodyField'
 import { textCardModalLogic } from 'lib/components/Cards/TextCard/textCardModalLogic'
+import type { TextCardModalProps } from 'lib/components/Cards/TextCard/textCardModalLogic'
 import { LemonButton } from 'lib/lemon-ui/LemonButton'
 import { LemonSwitch } from 'lib/lemon-ui/LemonSwitch'
 import { DialogClose, DialogPrimitive, DialogPrimitiveTitle } from 'lib/ui/DialogPrimitive/DialogPrimitive'
@@ -24,7 +25,7 @@ export function TextCardModal({
     textTileId: DashboardTileIdOrNew
 }): JSX.Element {
     const isNewTile = textTileId === null
-    const modalLogicProps = { dashboard, textTileId, onClose }
+    const modalLogicProps: TextCardModalProps = { dashboard, textTileId, onClose, tileType: 'text' }
     const modalLogic = textCardModalLogic(modalLogicProps)
     // Form `body` + validation drive updates while typing; splitting useValues does not reduce rerenders.
     const { isTextTileSubmitting, textTileValidationErrors, textTile } = useValues(modalLogic)

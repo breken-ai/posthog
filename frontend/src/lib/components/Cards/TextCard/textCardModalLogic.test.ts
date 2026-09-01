@@ -52,6 +52,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard('x'.repeat(4001)),
             textTileId: 1,
             onClose: jest.fn(),
+            tileType: 'text',
         })
         logic.mount()
 
@@ -69,6 +70,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard(''),
             textTileId: null,
             onClose: jest.fn(),
+            tileType: 'text',
         })
         logic.mount()
 
@@ -86,7 +88,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard(),
             textTileId: null,
             onClose: jest.fn(),
-            defaultTransparentBackground: true,
+            tileType: 'image',
         })
         logic.mount()
 
@@ -98,6 +100,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard('valid'),
             textTileId: 1,
             onClose: jest.fn(),
+            tileType: 'text',
         })
         logic.mount()
 
@@ -117,6 +120,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard('valid'),
             textTileId: 1,
             onClose: jest.fn(),
+            tileType: 'text',
         })
         logic.mount()
 
@@ -136,7 +140,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard('![Image](https://example.com/image.png)'),
             textTileId: 1,
             onClose: jest.fn(),
-            defaultTransparentBackground: true,
+            tileType: 'image',
         })
         logic.mount()
 
@@ -159,6 +163,7 @@ describe('textCardModalLogic', () => {
             dashboard: makeDashboard(),
             textTileId: null,
             onClose: jest.fn(),
+            tileType: 'text',
         })
         logic.mount()
 
