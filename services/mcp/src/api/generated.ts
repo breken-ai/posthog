@@ -89391,7 +89391,7 @@ export namespace Schemas {
      */
     search?: string;
     /**
-     * Comma-separated tag names to filter by, for example `production,eu-region`. Names are trimmed and lowercased before matching.
+     * Comma-separated tag names to filter by, for example `production,eu-region`. Names are trimmed and lowercased before matching. At most 20 distinct tags per request.
      */
     tags?: string;
     /**
