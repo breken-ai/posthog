@@ -249,7 +249,11 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "loginas.context_processors.impersonated_session_status",
                 "posthog.helpers.impersonation.impersonation_context",
-            ]
+            ],
+            "builtins": [
+                "posthog.templatetags.posthog_assets",
+                "posthog.templatetags.posthog_filters",
+            ],
         },
     }
 ]
@@ -960,12 +964,6 @@ SPECTACULAR_SETTINGS = {
         # Same-value collisions: identical choice sets appear on fields with different names.
         # href_matching, text_matching, url_matching on ActionStep all share the same choices.
         "ActionStepMatchingEnum": ["contains", "regex", "exact"],
-        # effective_restriction_level and effective_privilege_level are SerializerMethodFields
-        # returning Dashboard.RestrictionLevel/PrivilegeLevel (IntegerChoices).  Since they
-        # go through the type-hint path (no x-spec-enum-id), they hash as (value, value).
-        "EffectivePrivilegeLevelEnum": [(21, 21), (37, 37)],
-        # effective_membership_level and level on OrganizationMember use the same int values.
-        "EffectiveMembershipLevelEnum": [(1, 1), (8, 8), (15, 15)],
         # descriptionContentType and thankYouMessageDescriptionContentType share values.
         "DescriptionContentTypeEnum": ["text", "html"],
         # Field-name collisions: multiple different choice sets use the same field name
@@ -1283,6 +1281,9 @@ WORKFLOWS_EMAIL_TIER_DEMOTION_COOLDOWN_DAYS = int(get_from_env("WORKFLOWS_EMAIL_
 # A team above the lowest tier that sends nothing for this long drops one tier per period. Mailbox
 # providers keep about 30 days of reputation history, so a long-dormant allowance is unearned and a
 # comeback blast from a stale list is exactly what the caps exist to prevent. 0 disables decay.
+# The sweep tests inactivity as zero sends over WORKFLOWS_EMAIL_TIER_RATE_WINDOW_DAYS, not over this
+# value, so keep the two equal. A larger value decays teams that still sent inside the rate window,
+# and a smaller one waits for the rate window to clear before it decays.
 WORKFLOWS_EMAIL_TIER_INACTIVITY_DECAY_DAYS = int(get_from_env("WORKFLOWS_EMAIL_TIER_INACTIVITY_DECAY_DAYS", 30))
 WORKFLOWS_EMAIL_TIER_MAX_COMPLAINT_RATE = float(get_from_env("WORKFLOWS_EMAIL_TIER_MAX_COMPLAINT_RATE", 0.001))
 WORKFLOWS_EMAIL_TIER_MAX_BOUNCE_RATE = float(get_from_env("WORKFLOWS_EMAIL_TIER_MAX_BOUNCE_RATE", 0.02))
