@@ -1384,4 +1384,4 @@ class TestLogsPersonIdFilter(ClickhouseTestMixin, APIBaseTest):
             data={"query": {**query_params, "facetField": "severity_text"}},
         )
         self.assertEqual(facet_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(facet_response.json()["results"], [{"value": "info", "count": 1}])
+        self.assertEqual(facet_response.json()["results"]["facetField"], [{"value": "info", "count": 1}])
