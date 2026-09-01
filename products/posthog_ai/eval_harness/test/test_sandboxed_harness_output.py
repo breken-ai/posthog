@@ -180,6 +180,7 @@ def test_tool_call_spans_are_split_when_one_agent_message_has_multiple_calls() -
         ("tool_call: execute-sql", [{"tool": "execute-sql", "input": {}}]),
     ]
 
+
 def _collect_spans(parsed: ParsedLog) -> list[tuple[str, Any]]:
     collected: list[tuple[str, Any]] = []
 
