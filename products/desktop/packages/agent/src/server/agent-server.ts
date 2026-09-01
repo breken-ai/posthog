@@ -4419,6 +4419,7 @@ When the user asks about analytics, data, metrics, events, funnels, dashboards, 
 - Use the canonical \`posthog:exec\` tool to query data, search insights, and provide real answers
 - Follow its built-in instructions to discover and invoke inner tools
 - Do NOT tell the user to check an external analytics platform — you ARE the analytics platform
+- For a named business or telemetry metric, search the governed catalog with \`posthog:metric-search\` before a typed domain tool or raw query, then run an approved match with \`posthog:data-catalog-metric-run\`
 - Inner tools include \`posthog:read-data-schema\`, \`posthog:execute-sql\`, \`posthog:insight-query\`, and the typed query tools
 
 When the user asks for code changes or software engineering tasks:

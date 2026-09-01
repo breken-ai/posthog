@@ -5142,6 +5142,8 @@ describe("AgentServer HTTP Mode", () => {
           "Task-Id: test-task-id",
           "canonical `posthog:exec` tool",
           "`posthog:read-data-schema`",
+          "`posthog:metric-search`",
+          "`posthog:data-catalog-metric-run`",
         ],
         shouldNotContain: [
           "gh repo clone",
@@ -5158,6 +5160,8 @@ describe("AgentServer HTTP Mode", () => {
           "You may make local edits in a repository cloned with `clone_repo`",
           "Do NOT create branches, commits, push changes, or open pull requests in this run",
           "canonical `posthog:exec` tool",
+          "`posthog:metric-search`",
+          "`posthog:data-catalog-metric-run`",
         ],
         shouldNotContain: [
           "open a draft pull request",
