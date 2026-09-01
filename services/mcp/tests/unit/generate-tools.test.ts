@@ -1457,10 +1457,6 @@ describe('ToolConfigSchema validation', () => {
             extra: { include_params: ['name'] },
         },
         {
-            name: 'rejects input_schema with exclude_params',
-            extra: { exclude_params: ['name'] },
-        },
-        {
             name: 'rejects input_schema with param_overrides',
             extra: { param_overrides: { name: { description: 'x' } } },
         },
@@ -1473,6 +1469,11 @@ describe('ToolConfigSchema validation', () => {
 
     it('allows input_schema without include_params, exclude_params, or param_overrides', () => {
         const result = ToolConfigSchema.safeParse(validBase)
+        expect(result.success).toBe(true)
+    })
+
+    it('allows input_schema with exclude_params', () => {
+        const result = ToolConfigSchema.safeParse({ ...validBase, exclude_params: ['name'] })
         expect(result.success).toBe(true)
     })
 
