@@ -1,4 +1,3 @@
-"""Unit tests for MCP workflow scorers that consume sandboxed-agent logs."""
 
 from __future__ import annotations
 
