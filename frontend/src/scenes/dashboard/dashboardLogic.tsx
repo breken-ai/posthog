@@ -3456,16 +3456,18 @@ export const dashboardLogic = kea<dashboardLogicType>([
             actions.updateLayouts({ ...values.layouts, sm: newSmLayout })
 
             // The inline insert has now landed at the line — report it (outcome, vs the option-clicked intent).
-            let insertedTileType: DashboardAddTileType = 'insight'
-            if (newTile.text) {
-                insertedTileType = getImageOnlyTextCardImage(textCardConverter, newTile.text.body)
-                    ? 'image'
-                    : 'text_card'
-            } else if (newTile.button_tile) {
-                insertedTileType = 'button'
-            } else if (newTile.widget) {
-                insertedTileType = 'widget'
-            }
+            const insertedTileType = (() => {
+                switch (getDashboardWidgetType(newTile)) {
+                    case 'text':
+                        return getImageOnlyTextCardImage(textCardConverter, newTile.text!.body) ? 'image' : 'text_card'
+                    case 'button_tile':
+                        return 'button'
+                    case 'widget':
+                        return 'widget'
+                    case 'insight':
+                        return 'insight'
+                }
+            })() satisfies DashboardAddTileType
             eventUsageLogic.actions.reportDashboardTileInsertedInline(
                 insertedTileType,
                 props.id,
