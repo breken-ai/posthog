@@ -6,7 +6,7 @@ from parameterized import parameterized
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
 
-from posthog.api.project import ProjectViewSet
+from posthog.api.project import MAX_TAGS_PER_FILTER, ProjectViewSet
 from posthog.api.test.test_team import EnvironmentToProjectRewriteClient, team_api_test_factory
 from posthog.constants import AvailableFeature
 from posthog.models.organization import Organization, OrganizationMembership
@@ -994,5 +994,13 @@ class TestProjectAPI(team_api_test_factory()):  # type: ignore
 
     def test_unknown_tags_match_mode_is_rejected(self):
         response = self.client.get("/api/projects/?tags=production&tags_match=either")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
+
+    def test_filtering_by_too_many_tags_is_rejected(self):
+        # "all" joins once per tag, so an unbounded list would let a caller size the query plan.
+        too_many = ",".join(f"tag-{index}" for index in range(MAX_TAGS_PER_FILTER + 1))
+
+        response = self.client.get(f"/api/projects/?tags={too_many}")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())

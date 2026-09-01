@@ -532,6 +532,10 @@ PROJECT_TAGS_HELP_TEXT = (
 
 TAGS_MATCH_MODES = ("all", "any")
 
+# "all" adds one join per tag, so an unbounded list would hand Postgres a query plan that grows
+# with whatever a caller puts in the query string.
+MAX_TAGS_PER_FILTER = 20
+
 
 def project_tags_field() -> serializers.ListField:
     """The writable `tags` field shared by the project detail and list serializers."""
@@ -557,6 +561,8 @@ def parse_project_tag_filter(query_params: Any) -> tuple[list[str], str] | None:
     tags = sorted({tagify(tag) for tag in raw.split(",") if tag.strip()})
     if not tags:
         return None
+    if len(tags) > MAX_TAGS_PER_FILTER:
+        raise exceptions.ValidationError({"tags": f"Filter by at most {MAX_TAGS_PER_FILTER} tags at a time."})
     match = query_params.get("tags_match", "all")
     if match not in TAGS_MATCH_MODES:
         raise exceptions.ValidationError({"tags_match": f"Must be one of: {', '.join(TAGS_MATCH_MODES)}."})
@@ -1205,7 +1211,10 @@ class ProjectBackwardCompatSerializer(
             detail=Detail(name=str(team.name)),
         )
 
-        self._attempt_set_tags(tags, project)
+        # Replacing tags is several inserts, deletes and an orphan cleanup. Without a transaction a
+        # failure part way through leaves the project holding a mix of old and new tags.
+        with transaction.atomic():
+            self._attempt_set_tags(tags, project)
 
         return project
 
@@ -1389,7 +1398,9 @@ class ProjectBackwardCompatSerializer(
             team,
         )
 
-        self._attempt_set_tags(tags, instance)
+        # As in create(): the tag replacement is all-or-nothing.
+        with transaction.atomic():
+            self._attempt_set_tags(tags, instance)
 
         return instance
 
@@ -1404,7 +1415,8 @@ class ProjectBackwardCompatSerializer(
                 location=OpenApiParameter.QUERY,
                 description=(
                     "Comma-separated tag names to filter by, for example `production,eu-region`. "
-                    "Names are trimmed and lowercased before matching."
+                    "Names are trimmed and lowercased before matching. At most "
+                    f"{MAX_TAGS_PER_FILTER} distinct tags per request."
                 ),
             ),
             OpenApiParameter(
