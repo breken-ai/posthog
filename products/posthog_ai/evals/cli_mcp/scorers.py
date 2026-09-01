@@ -13,8 +13,9 @@ unrelated cases don't drag the rollup down.
 
 * ``CalledTargetTool`` — did the agent successfully invoke
   ``expected[<scorer_name>]["tool"]`` at least once? Returns 1.0/0.0.
-* ``FirstRelevantTool`` — did the agent select the expected tool for its first
-  successful call among a supplied set of comparable tools? Returns 1.0/0.0.
+* ``FirstRelevantTool`` — in the earliest turn where the agent used one of a
+  supplied set of comparable tools, did it use only the expected one?
+  Returns 1.0/0.0.
 * ``RecoveredToCorrectTool`` — when prompted to use a wrong tool name
   (deprecated or typo'd), did the agent end up calling a correct
   replacement?
@@ -213,12 +214,21 @@ class DidNotCiteRawSqlAfterTypedQuery(Scorer):
 
 
 class FirstRelevantTool(Scorer):
-    """Binary: did the first successful call among ``relevant_tools`` match the target?
+    """Binary: did the earliest turn that used ``relevant_tools`` use only the target?
 
     ``execute-sql`` calls against ``system.information_schema.*`` are skipped:
     the MCP instructions require that catalog lookup before an answer query, so
     counting it as the route would score the mandated discovery step rather
     than the tool the agent picked to answer with.
+
+    ``position`` is the index of the enclosing assistant message, so every call
+    the agent emitted in one response shares it. Such calls are simultaneous —
+    none of them saw another's result — so there is no first among them, and
+    picking one by block order would grade the order the model happened to
+    write them in. This scorer grades the whole batch instead: it passes only
+    when every relevant call in the earliest turn used the target. A turn that
+    fires a typed runner and ``execute-sql`` together is a hedge, not a route,
+    and fails whichever of the two the case expects.
     """
 
     def __init__(self, *, relevant_tools: frozenset[str]) -> None:
@@ -252,18 +262,21 @@ class FirstRelevantTool(Scorer):
                 },
             )
 
-        first = min(relevant, key=lambda call: call.position)
-        score = 1.0 if first.name == target else 0.0
-        return Score(
-            name=self._name(),
-            score=score,
-            metadata={
-                "expected_tool": target,
-                "first_relevant_tool": first.name,
-                "call_id": first.call_id,
-                "skipped_discovery_calls": skipped_discovery,
-            },
-        )
+        first_position = min(call.position for call in relevant)
+        first_turn = [call for call in relevant if call.position == first_position]
+        turn_tools = sorted({call.name for call in first_turn})
+        metadata: dict[str, object] = {
+            "expected_tool": target,
+            "first_relevant_tool": turn_tools[0] if len(turn_tools) == 1 else None,
+            "first_relevant_tools": turn_tools,
+            "call_ids": [call.call_id for call in first_turn],
+            "skipped_discovery_calls": skipped_discovery,
+        }
+        if turn_tools == [target]:
+            return Score(name=self._name(), score=1.0, metadata=metadata)
+        if len(turn_tools) > 1:
+            metadata["reason"] = "The earliest relevant turn selected several tools at once"
+        return Score(name=self._name(), score=0.0, metadata=metadata)
 
 
 def _attempted_tool(call: ToolCall, wrong: str) -> bool:

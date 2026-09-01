@@ -9,39 +9,59 @@ from parameterized import parameterized
 from products.posthog_ai.evals.cli_mcp.scorers import DidNotCiteRawSqlAfterTypedQuery, FirstRelevantTool
 
 
+def _tool_call_start(call_id: str, command: str) -> str:
+    return json.dumps(
+        {
+            "notification": {
+                "method": "session/update",
+                "params": {
+                    "update": {
+                        "sessionUpdate": "tool_call",
+                        "toolCallId": call_id,
+                        "rawInput": {"command": command},
+                        "_meta": {"claudeCode": {"toolName": "mcp__posthog__exec"}},
+                    }
+                },
+            }
+        }
+    )
+
+
+def _tool_call_result(call_id: str) -> str:
+    return json.dumps(
+        {
+            "notification": {
+                "method": "session/update",
+                "params": {
+                    "update": {
+                        "sessionUpdate": "tool_call_update",
+                        "toolCallId": call_id,
+                        "status": "completed",
+                        "rawOutput": "ok",
+                    }
+                },
+            }
+        }
+    )
+
+
 def _tool_call(call_id: str, command: str) -> list[str]:
-    return [
-        json.dumps(
-            {
-                "notification": {
-                    "method": "session/update",
-                    "params": {
-                        "update": {
-                            "sessionUpdate": "tool_call",
-                            "toolCallId": call_id,
-                            "rawInput": {"command": command},
-                            "_meta": {"claudeCode": {"toolName": "mcp__posthog__exec"}},
-                        }
-                    },
-                }
-            }
-        ),
-        json.dumps(
-            {
-                "notification": {
-                    "method": "session/update",
-                    "params": {
-                        "update": {
-                            "sessionUpdate": "tool_call_update",
-                            "toolCallId": call_id,
-                            "status": "completed",
-                            "rawOutput": "ok",
-                        }
-                    },
-                }
-            }
-        ),
-    ]
+    return [_tool_call_start(call_id, command), _tool_call_result(call_id)]
+
+
+def _raw_log(turns: list[list[str]]) -> str:
+    """Render one assistant turn per inner list of commands.
+
+    The parser opens a new assistant message when a tool call follows a
+    captured result, so emitting every call of a turn before any of its
+    results is what gives those calls one shared position.
+    """
+    lines: list[str] = []
+    for turn_index, commands in enumerate(turns):
+        call_ids = [f"call-{turn_index}-{index}" for index in range(len(commands))]
+        lines += [_tool_call_start(call_id, command) for call_id, command in zip(call_ids, commands)]
+        lines += [_tool_call_result(call_id) for call_id in call_ids]
+    return "\n".join(lines)
 
 
 ANALYSIS_QUERY_TOOLS = frozenset({"query-trends", "query-funnel", "query-retention", "execute-sql"})
@@ -59,50 +79,62 @@ def _sql_command(query: str) -> str:
     [
         (
             "typed_query_first_then_sql",
-            ["call query-retention {}", _sql_command(_ANSWER_SQL)],
+            [["call query-retention {}"], [_sql_command(_ANSWER_SQL)]],
             "query-retention",
             1.0,
-            "query-retention",
+            ["query-retention"],
         ),
         (
             "sql_answer_before_the_typed_query",
-            [_sql_command(_ANSWER_SQL), "call query-retention {}"],
+            [[_sql_command(_ANSWER_SQL)], ["call query-retention {}"]],
             "query-retention",
             0.0,
-            "execute-sql",
+            ["execute-sql"],
         ),
         (
             "mandated_catalog_lookup_before_the_typed_query",
-            [_sql_command(_DISCOVERY_SQL), "call query-retention {}"],
+            [[_sql_command(_DISCOVERY_SQL)], ["call query-retention {}"]],
             "query-retention",
             1.0,
-            "query-retention",
+            ["query-retention"],
         ),
         (
             "sql_control_that_only_looked_up_the_catalog",
-            [_sql_command(_DISCOVERY_SQL)],
+            [[_sql_command(_DISCOVERY_SQL)]],
             "execute-sql",
             0.0,
             None,
+        ),
+        (
+            "typed_query_and_sql_in_one_turn_fails_the_typed_case",
+            [["call query-retention {}", _sql_command(_ANSWER_SQL)]],
+            "query-retention",
+            0.0,
+            ["execute-sql", "query-retention"],
+        ),
+        (
+            "typed_query_and_sql_in_one_turn_fails_the_sql_control",
+            [[_sql_command(_ANSWER_SQL), "call query-retention {}"]],
+            "execute-sql",
+            0.0,
+            ["execute-sql", "query-retention"],
         ),
     ]
 )
 def test_first_relevant_tool_grades_the_answer_route(
     _name: str,
-    commands: list[str],
+    turns: list[list[str]],
     target: str,
     expected_score: float,
-    expected_first_tool: str | None,
+    expected_turn_tools: list[str] | None,
 ) -> None:
-    raw_log = "\n".join(line for index, command in enumerate(commands) for line in _tool_call(f"call-{index}", command))
-
     result = FirstRelevantTool(relevant_tools=ANALYSIS_QUERY_TOOLS)._run_eval_sync(
-        {"raw_log": raw_log},
+        {"raw_log": _raw_log(turns)},
         expected={"first_relevant_tool": {"tool": target}},
     )
 
     assert result.score == expected_score
-    assert result.metadata.get("first_relevant_tool") == expected_first_tool
+    assert result.metadata.get("first_relevant_tools") == expected_turn_tools
 
 
 @parameterized.expand(
