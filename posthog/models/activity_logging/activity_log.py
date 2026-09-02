@@ -518,6 +518,9 @@ field_exclusions: dict[AuditableScope, list[str]] = {
         # System-maintained skip-forward map for deleted steps, refreshed as a side effect of graph
         # writes — bookkeeping, not a user edit, so keep it out of change diffs.
         "action_redirects",
+        # Reverse FK to WorkflowProposal: diffing it walks that model's fail-closed TeamScopedManager
+        # and reads every proposal on both sides of the diff, none of which is a workflow edit.
+        "proposals",
     ],
     "Metric": [
         # Derived/throttled fields, not user-meaningful change diffs.
