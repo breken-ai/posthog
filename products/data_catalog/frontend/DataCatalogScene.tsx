@@ -15,6 +15,7 @@ import { ProductKey } from '~/queries/schema/schema-general'
 import { certificationsLogic } from './certificationsLogic'
 import { NewMetricModal } from './components/NewMetricModal'
 import { DataCatalogTab, dataCatalogSceneLogic } from './dataCatalogSceneLogic'
+import { dataCatalogEmptyState } from './emptyState/dataCatalogEmptyState'
 import { metricsLogic } from './metricsLogic'
 import { relationshipsLogic } from './relationshipsLogic'
 import { CertificationsTab } from './tabs/CertificationsTab'
@@ -25,6 +26,7 @@ export const scene: SceneExport = {
     component: DataCatalogScene,
     logic: dataCatalogSceneLogic,
     productKey: ProductKey.DATA_CATALOG,
+    emptyState: dataCatalogEmptyState,
 }
 
 function TabLabel({ label, count }: { label: string; count: number }): JSX.Element {
