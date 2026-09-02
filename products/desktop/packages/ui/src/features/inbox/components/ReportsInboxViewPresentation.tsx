@@ -36,9 +36,12 @@ export interface ReportsInboxViewPresentationProps {
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
   isError: boolean;
-  isEmpty: boolean;
-  /** Nothing is configured yet: show the welcome state instead of "Nothing to review". */
-  showSetupWelcome: boolean;
+  /**
+   * `null` when there are reports to show. `"welcome"` when nothing is
+   * configured yet, `"plain"` for every other empty case ("Nothing to
+   * review", or "No reports match your filters" when `hasActiveFilters`).
+   */
+  emptyState: "welcome" | "plain" | null;
   hasActiveFilters: boolean;
   triageEnabled: boolean;
   filterControl: ReactNode;
@@ -58,8 +61,7 @@ export function ReportsInboxViewPresentation({
   isFetchingNextPage,
   hasNextPage,
   isError,
-  isEmpty,
-  showSetupWelcome,
+  emptyState,
   hasActiveFilters,
   triageEnabled,
   filterControl,
@@ -152,7 +154,7 @@ export function ReportsInboxViewPresentation({
                 </Button>
               </EmptyContent>
             </Empty>
-          ) : showSetupWelcome ? (
+          ) : emptyState === "welcome" ? (
             <Empty className="mx-auto max-w-md flex-none border-0 py-12">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -175,7 +177,7 @@ export function ReportsInboxViewPresentation({
                 </Button>
               </EmptyContent>
             </Empty>
-          ) : isEmpty ? (
+          ) : emptyState === "plain" ? (
             <Empty className="mx-auto max-w-md flex-none border-0 py-12">
               <EmptyHeader>
                 <EmptyMedia variant="icon">

@@ -299,6 +299,7 @@ export function ReportsInboxView(): React.JSX.Element {
     !hasActiveFilters &&
     !setupStatus.isLoading &&
     !setupStatus.isConfigured;
+  const emptyState = showSetupWelcome ? "welcome" : isEmpty ? "plain" : null;
 
   return (
     <ReportsInboxViewPresentation
@@ -308,8 +309,7 @@ export function ReportsInboxView(): React.JSX.Element {
       isFetchingNextPage={isFetchingNextPage}
       hasNextPage={hasNextPage}
       isError={isError}
-      isEmpty={isEmpty}
-      showSetupWelcome={showSetupWelcome}
+      emptyState={emptyState}
       hasActiveFilters={hasActiveFilters}
       triageEnabled={triageFocusEnabled}
       filterControl={<InboxReportFilters />}
