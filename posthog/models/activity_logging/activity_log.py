@@ -799,7 +799,7 @@ field_exclusions: dict[AuditableScope, list[str]] = {
         # ambient team scope at signal-handling time (same reason Loop excludes triggers/fires).
         "facet_settings",
         # Same fail-closed manager, on the two WorkflowProposal relations a user can author or resolve.
-        "workflowproposal_set",
+        "workflowproposal",
         "resolved_workflow_proposals",
     ],
     "AlertConfiguration": [
