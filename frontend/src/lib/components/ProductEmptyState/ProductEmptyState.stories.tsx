@@ -5,6 +5,7 @@ import type { Mocks } from '~/mocks/utils'
 import { actionsEmptyState } from 'products/actions/frontend/emptyState/actionsEmptyState'
 import { aiObservabilityEmptyState } from 'products/ai_observability/frontend/emptyState/aiObservabilityEmptyState'
 import { llmPromptsEmptyState } from 'products/ai_observability/frontend/emptyState/llmPromptsEmptyState'
+import { alertsEmptyState } from 'products/alerts/frontend/emptyState/alertsEmptyState'
 import { annotationsEmptyState } from 'products/annotations/frontend/emptyState/annotationsEmptyState'
 import { webScriptsEmptyState } from 'products/cdp/frontend/emptyState/webScriptsEmptyState'
 import { cohortsEmptyState } from 'products/cohorts/frontend/emptyState/cohortsEmptyState'
@@ -303,6 +304,16 @@ export const WebVitalsWaitingForData: ProductEmptyStateStory = productEmptyState
     'waiting-for-data',
     { mocks: webVitalsMocks }
 )
+
+// Alerts detection counts both alert kinds on mount - answer "none yet" to each.
+export const AlertsNeedsSetup: ProductEmptyStateStory = productEmptyStateStory(alertsEmptyState, 'needs-setup', {
+    mocks: {
+        get: {
+            '/api/projects/:team_id/alerts/': [200, emptyEntityList],
+            '/api/projects/:team_id/logs/alerts/': [200, emptyEntityList],
+        },
+    },
+})
 
 // Notebooks detection counts notebooks on mount - answer "none yet".
 export const NotebooksNeedsSetup: ProductEmptyStateStory = productEmptyStateStory(notebooksEmptyState, 'needs-setup', {
