@@ -97,6 +97,7 @@ const meta: Meta<typeof ReportsInboxViewPresentation> = {
     hasNextPage: false,
     isError: false,
     isEmpty: false,
+    showSetupWelcome: false,
     hasActiveFilters: false,
     triageEnabled: true,
     filterControl: <InboxReportFilters />,
@@ -120,6 +121,18 @@ export const EmptyInbox: Story = {
     reports: [],
     triageReportCount: 0,
     isEmpty: true,
+  },
+};
+
+export const SetupWelcome: Story = {
+  args: {
+    reviewAndMerge: [],
+    reviewAndMergeCount: 0,
+    needsPr: [],
+    needsPrCount: 0,
+    isEmpty: true,
+    showSetupWelcome: true,
+    resolvedSection: undefined,
   },
 };
 

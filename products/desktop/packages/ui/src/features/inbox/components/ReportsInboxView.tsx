@@ -14,6 +14,7 @@ import { ReportsInboxViewPresentation } from "@posthog/ui/features/inbox/compone
 import { ReportTriageFocus } from "@posthog/ui/features/inbox/components/ReportTriageFocus";
 import { useInboxAllReports } from "@posthog/ui/features/inbox/hooks/useInboxAllReports";
 import { useInboxTriageOrigin } from "@posthog/ui/features/inbox/hooks/useInboxBackTarget";
+import { useSelfDrivingSetupStatus } from "@posthog/ui/features/inbox/hooks/useSelfDrivingSetupStatus";
 import { useTrackReportsInboxViewed } from "@posthog/ui/features/inbox/hooks/useTrackReportsInboxViewed";
 import {
   DEFAULT_INBOX_REPORT_STATE_FILTER,
@@ -90,6 +91,7 @@ export function ReportsInboxView(): React.JSX.Element {
     sortDirection,
   } = reviewAndMergeQuery;
   const triageFocusEnabled = useTriageFocusEnabled();
+  const setupStatus = useSelfDrivingSetupStatus();
   const triageOrigin = useInboxTriageOrigin();
   const navigate = useNavigate();
   const [focusMode, setFocusMode] = useState(() => triageOrigin !== null);
@@ -290,6 +292,13 @@ export function ReportsInboxView(): React.JSX.Element {
   }
 
   const isEmpty = isSuccess && reportCount === 0;
+  // Active filters narrowed an otherwise non-empty inbox to nothing, so
+  // "no matches" is the honest message even for a project with nothing set up.
+  const showSetupWelcome =
+    isEmpty &&
+    !hasActiveFilters &&
+    !setupStatus.isLoading &&
+    !setupStatus.isConfigured;
 
   return (
     <ReportsInboxViewPresentation
@@ -300,6 +309,7 @@ export function ReportsInboxView(): React.JSX.Element {
       hasNextPage={hasNextPage}
       isError={isError}
       isEmpty={isEmpty}
+      showSetupWelcome={showSetupWelcome}
       hasActiveFilters={hasActiveFilters}
       triageEnabled={triageFocusEnabled}
       filterControl={<InboxReportFilters />}

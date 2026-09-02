@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
     actionabilityFilter?: string;
     withPullRequestCount?: boolean;
   }[],
+  setupConfigured: true,
 }));
 
 vi.mock("@posthog/ui/features/feature-flags/useTriageFocusEnabled", () => ({
@@ -122,6 +123,13 @@ vi.mock("@posthog/ui/features/inbox/hooks/useInboxSectionCounts", () => ({
 
 vi.mock("@posthog/ui/features/inbox/hooks/useTrackReportsInboxViewed", () => ({
   useTrackReportsInboxViewed: () => undefined,
+}));
+
+vi.mock("@posthog/ui/features/inbox/hooks/useSelfDrivingSetupStatus", () => ({
+  useSelfDrivingSetupStatus: () => ({
+    isLoading: false,
+    isConfigured: mocks.setupConfigured,
+  }),
 }));
 
 vi.mock(
@@ -215,6 +223,7 @@ describe("ReportsInboxView", () => {
     mocks.locationState = {};
     mocks.allReportsOptions = [];
     mocks.pagedStatus = null;
+    mocks.setupConfigured = true;
     useInboxSignalsFilterStore.setState({
       searchQuery: "checkout",
       sourceProductFilter: [],
@@ -251,6 +260,36 @@ describe("ReportsInboxView", () => {
     render(<ReportsInboxView />);
 
     expect(screen.getByText("Nothing to review")).toBeTruthy();
+  });
+
+  it("shows the setup welcome state when the inbox is empty and nothing is configured", () => {
+    mocks.searchQuery = "";
+    mocks.setupConfigured = false;
+    useInboxSignalsFilterStore.setState({
+      searchQuery: "",
+      sourceProductFilter: [],
+      priorityFilter: [],
+    });
+
+    render(<ReportsInboxView />);
+
+    expect(screen.getByText("Ship fixes while you sleep")).toBeTruthy();
+    expect(screen.queryByText("Nothing to review")).toBeNull();
+  });
+
+  it("shows the plain empty state instead of the welcome when something is configured", () => {
+    mocks.searchQuery = "";
+    mocks.setupConfigured = true;
+    useInboxSignalsFilterStore.setState({
+      searchQuery: "",
+      sourceProductFilter: [],
+      priorityFilter: [],
+    });
+
+    render(<ReportsInboxView />);
+
+    expect(screen.getByText("Nothing to review")).toBeTruthy();
+    expect(screen.queryByText("Ship fixes while you sleep")).toBeNull();
   });
 
   it("opens a report on the first click without preloading its route", async () => {

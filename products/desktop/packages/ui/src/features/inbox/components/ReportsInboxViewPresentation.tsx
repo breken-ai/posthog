@@ -2,6 +2,7 @@ import {
   EnvelopeSimpleIcon,
   FunnelIcon,
   ListChecksIcon,
+  SparkleIcon,
 } from "@phosphor-icons/react";
 import {
   Button,
@@ -36,6 +37,8 @@ export interface ReportsInboxViewPresentationProps {
   hasNextPage: boolean;
   isError: boolean;
   isEmpty: boolean;
+  /** Nothing is configured yet: show the welcome state instead of "Nothing to review". */
+  showSetupWelcome: boolean;
   hasActiveFilters: boolean;
   triageEnabled: boolean;
   filterControl: ReactNode;
@@ -56,6 +59,7 @@ export function ReportsInboxViewPresentation({
   hasNextPage,
   isError,
   isEmpty,
+  showSetupWelcome,
   hasActiveFilters,
   triageEnabled,
   filterControl,
@@ -145,6 +149,29 @@ export function ReportsInboxViewPresentation({
               <EmptyContent>
                 <Button variant="outline" size="default" onClick={onRetry}>
                   Retry
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : showSetupWelcome ? (
+            <Empty className="mx-auto max-w-md flex-none border-0 py-12">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <SparkleIcon size={24} />
+                </EmptyMedia>
+                <EmptyTitle>Ship fixes while you sleep</EmptyTitle>
+                <EmptyDescription>
+                  PostHog watches your session replays, errors, and Slack, then
+                  opens a pull request when it finds something worth fixing.
+                  Connect a source to get started.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  variant="primary"
+                  size="default"
+                  onClick={onConfigureAgents}
+                >
+                  Configure agents
                 </Button>
               </EmptyContent>
             </Empty>
